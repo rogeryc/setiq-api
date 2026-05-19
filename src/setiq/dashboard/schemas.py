@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -64,3 +66,4 @@ class OverviewResponse(BaseModel):
     lead: LeadCopy | None = None
     featured_recommendation: FeaturedRecommendation | None = None
     memos: list[Memo] = []
+    generated_at: datetime

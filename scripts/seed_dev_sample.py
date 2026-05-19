@@ -601,7 +601,9 @@ async def _insert_conversations_and_messages(
         contacts_in_thread = random.sample(eligible, n_contacts)
 
         msgs_per_contact = max(1, theme["n_messages"] // n_contacts)
-        base_time = NOW - timedelta(days=random.randint(1, 7))
+        # Spread themes across the last 50 days so period-over-period deltas
+        # have data on both sides of the 30-day boundary.
+        base_time = NOW - timedelta(days=random.randint(1, 50))
 
         for c_idx, contact_id in enumerate(contacts_in_thread):
             identity_id = identity_map[(contact_id, identity_channel)]
@@ -638,7 +640,7 @@ async def _insert_conversations_and_messages(
                     '{"source": "seed_sample"}',
                 )
                 await _insert_message_classifications(
-                    conn, tenant_id, msg_id, intent, sentiment,
+                    conn, tenant_id, msg_id, intent, sentiment, sent_at,
                 )
 
             await conn.execute(
@@ -665,7 +667,12 @@ async def _insert_message_classifications(
     message_id: UUID,
     intent: str,
     sentiment: str,
+    sent_at: datetime | None = None,
 ) -> None:
+    """Insert one row per (message, kind). `created_at` is set to a moment
+    slightly after the message's sent_at so the sparkline + period-over-period
+    queries see realistic timestamps."""
+    classified_at = sent_at + timedelta(seconds=random.randint(2, 30)) if sent_at else NOW
     rows = [
         ("sentiment", sentiment, round(random.uniform(0.75, 0.95), 3)),
         ("intent", intent, round(random.uniform(0.70, 0.95), 3)),
@@ -678,12 +685,13 @@ async def _insert_message_classifications(
             """
             INSERT INTO message_classifications (
                 tenant_id, message_id, kind, label, confidence,
-                model_name, model_version, payload
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+                model_name, model_version, payload, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
             """,
             tenant_id, message_id, kind, label, confidence,
             MODEL_NAME, MODEL_VERSION,
             '{"source": "seed_sample"}',
+            classified_at,
         )
 
 

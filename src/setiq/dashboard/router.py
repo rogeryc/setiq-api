@@ -52,15 +52,25 @@ async def overview(
 ) -> OverviewResponse:
     now = datetime.now(timezone.utc)
     thirty_days_ago = now - timedelta(days=30)
+    sixty_days_ago = now - timedelta(days=60)
     seven_days_ago = now - timedelta(days=7)
+    fourteen_days_ago = now - timedelta(days=14)
 
-    # Interactions total (last 30 days)
-    interactions_30d: int = await conn.fetchval(
-        "SELECT COUNT(*) FROM messages WHERE sent_at >= $1",
-        thirty_days_ago,
+    # Interactions: count for current 30d window + prior 30d window
+    interactions_row = await conn.fetchrow(
+        """
+        SELECT
+          COUNT(*) FILTER (WHERE sent_at >= $1) AS current,
+          COUNT(*) FILTER (WHERE sent_at >= $2 AND sent_at < $1) AS previous
+        FROM messages
+        WHERE sent_at >= $2
+        """,
+        thirty_days_ago, sixty_days_ago,
     )
+    interactions_30d: int = int(interactions_row["current"] or 0)
+    interactions_prev: int = int(interactions_row["previous"] or 0)
 
-    # Sentiment score (last 7 days). 1.0 = all positive, 0 = all negative.
+    # Sentiment score: current 7d and prior 7d
     sentiment_row = await conn.fetchrow(
         """
         SELECT
@@ -68,14 +78,21 @@ async def overview(
                   WHEN 'positive' THEN 1.0
                   WHEN 'neutral'  THEN 0.5
                   WHEN 'negative' THEN 0.0
-                END) AS score
+                END) FILTER (WHERE created_at >= $1) AS current,
+            AVG(CASE label
+                  WHEN 'positive' THEN 1.0
+                  WHEN 'neutral'  THEN 0.5
+                  WHEN 'negative' THEN 0.0
+                END) FILTER (WHERE created_at >= $2 AND created_at < $1) AS previous
         FROM message_classifications
-        WHERE kind = 'sentiment'
-          AND created_at >= $1
+        WHERE kind = 'sentiment' AND created_at >= $2
         """,
-        seven_days_ago,
+        seven_days_ago, fourteen_days_ago,
     )
-    sentiment_score: float = float(sentiment_row["score"] or 0.0)
+    sentiment_score: float = float(sentiment_row["current"] or 0.0)
+    sentiment_prev: float | None = (
+        float(sentiment_row["previous"]) if sentiment_row["previous"] is not None else None
+    )
 
     # Daily sentiment sparkline over last 14 days
     spark_rows = await conn.fetch(
@@ -143,13 +160,13 @@ async def overview(
         OverviewKpi(
             label="Interacciones",
             value=_format_int_es(interactions_30d),
-            delta=KpiDelta(label="↑ 12%", tone="pos"),
+            delta=_pct_delta(interactions_30d, interactions_prev),
             sub="vs mes anterior",
         ),
         OverviewKpi(
             label="Sentimiento",
             value=_format_decimal_es(sentiment_score, 2),
-            delta=KpiDelta(label="↓ 4 pp", tone="neg"),
+            delta=_pp_delta(sentiment_score, sentiment_prev),
             sub="esta semana",
             spark=sparkline if sparkline else None,
             spark_tone="neg" if sentiment_score < 0.6 else "pos",
@@ -223,6 +240,7 @@ async def overview(
         lead=lead,
         featured_recommendation=featured,
         memos=memos,
+        generated_at=now,
     )
 
 
@@ -234,3 +252,23 @@ def _format_int_es(n: int) -> str:
 def _format_decimal_es(n: float, decimals: int = 2) -> str:
     """Format decimal with Spanish convention (comma as decimal separator)."""
     return f"{n:.{decimals}f}".replace(".", ",")
+
+
+def _pct_delta(current: float, previous: float) -> KpiDelta | None:
+    """% change of current vs previous. None when previous is 0 (undefined)."""
+    if previous <= 0:
+        return None
+    pct = (current - previous) / previous * 100.0
+    arrow = "↑" if pct >= 0 else "↓"
+    return KpiDelta(label=f"{arrow} {abs(round(pct))}%", tone=("pos" if pct >= 0 else "neg"))
+
+
+def _pp_delta(current: float, previous: float | None) -> KpiDelta | None:
+    """Percentage-points delta (current - previous) on a 0-1 score."""
+    if previous is None:
+        return None
+    diff_pp = round((current - previous) * 100)
+    if diff_pp == 0:
+        return KpiDelta(label="= 0 pp", tone="neutral")
+    arrow = "↑" if diff_pp > 0 else "↓"
+    return KpiDelta(label=f"{arrow} {abs(diff_pp)} pp", tone=("pos" if diff_pp > 0 else "neg"))
