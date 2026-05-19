@@ -17,6 +17,9 @@ class ConversationSummary(BaseModel):
     sentiment: str | None = None
     intent: str | None = None
     priority: str | None = None
+    # Set when the row represents an aggregated thread (group_by=thread) —
+    # how many distinct contacts commented on the post.
+    participant_count: int | None = None
 
 
 class ConversationGroup(BaseModel):
@@ -41,10 +44,16 @@ class MessageDetail(BaseModel):
     sent_at: datetime
     sentiment: str | None = None
     intent: str | None = None
+    # Per-message sender info (only meaningful when the detail spans
+    # multiple contacts — i.e. when fetched as a thread).
+    sender_name: str | None = None
+    sender_handle: str | None = None
 
 
 class ConversationDetail(BaseModel):
     id: UUID
+    # For a single conversation: that contact. For a thread (as_thread=true):
+    # a synthetic label like "Hilo · 5 personas".
     contact_name: str | None = None
     contact_handle: str
     channel: str
@@ -56,3 +65,6 @@ class ConversationDetail(BaseModel):
     intent: str | None = None
     priority: str | None = None
     messages: list[MessageDetail]
+    # Only set for thread detail.
+    is_thread: bool = False
+    participant_count: int | None = None

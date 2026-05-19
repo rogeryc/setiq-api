@@ -2,6 +2,11 @@
 
 GET /conversations?group_by=intent|channel|sentiment|thread  → grouped list
 GET /conversations/{id}                                       → detail
+GET /conversations/{id}?as_thread=true                        → thread detail
+                                                                (all messages
+                                                                 from all
+                                                                 commenters on
+                                                                 the post)
 """
 from typing import Literal
 from uuid import UUID
@@ -49,25 +54,20 @@ CHANNEL_LABELS: dict[str, str] = {
     "web":               "Web",
 }
 
-# Order in which groups should appear in the response (stable per group_by).
 INTENT_ORDER = list(INTENT_LABELS.keys())
 SENTIMENT_ORDER = ["negative", "neutral", "positive"]
 
 
-_SUMMARY_QUERY = """
+_PER_CONVERSATION_QUERY = """
 WITH last_msg AS (
     SELECT DISTINCT ON (conversation_id)
-        conversation_id,
-        content_text,
-        sent_at
+        conversation_id, content_text, sent_at
     FROM messages
     ORDER BY conversation_id, sent_at DESC
 ),
 last_class AS (
     SELECT DISTINCT ON (m.conversation_id, mc.kind)
-        m.conversation_id,
-        mc.kind,
-        mc.label
+        m.conversation_id, mc.kind, mc.label
     FROM message_classifications mc
     JOIN messages m ON m.id = mc.message_id
     WHERE mc.kind IN ('sentiment', 'intent', 'priority')
@@ -83,24 +83,84 @@ pivot AS (
     GROUP BY conversation_id
 )
 SELECT
-    c.id,
-    c.channel,
-    c.status,
-    c.subject,
-    c.last_message_at,
+    c.id, c.channel, c.status, c.subject, c.last_message_at,
     co.display_name           AS contact_name,
     ci.external_id            AS contact_handle,
     lm.content_text           AS last_message_preview,
     (SELECT COUNT(*) FROM messages mm WHERE mm.conversation_id = c.id) AS message_count,
-    p.sentiment,
-    p.intent,
-    p.priority
+    p.sentiment, p.intent, p.priority
 FROM conversations c
 JOIN contacts          co ON co.id = c.contact_id
 JOIN channel_identities ci ON ci.id = c.channel_identity_id
 LEFT JOIN last_msg     lm ON lm.conversation_id = c.id
 LEFT JOIN pivot        p  ON p.conversation_id = c.id
 ORDER BY c.last_message_at DESC NULLS LAST
+"""
+
+
+# Thread-mode query: aggregate by (channel, external_thread_id). Each row
+# represents a post; we pick the conversation with the latest message as the
+# `id` so the frontend has a valid handle for the detail endpoint.
+_THREAD_QUERY = """
+WITH conv_with_msgs AS (
+    SELECT
+        c.id AS conversation_id,
+        c.channel,
+        c.external_thread_id,
+        c.subject,
+        c.contact_id,
+        c.last_message_at,
+        (SELECT COUNT(*) FROM messages mm WHERE mm.conversation_id = c.id) AS msg_count
+    FROM conversations c
+    WHERE c.external_thread_id IS NOT NULL
+),
+thread_pick AS (
+    -- Pick the conversation with the most recent activity for each thread
+    SELECT DISTINCT ON (channel, external_thread_id)
+        channel, external_thread_id, conversation_id, last_message_at
+    FROM conv_with_msgs
+    ORDER BY channel, external_thread_id, last_message_at DESC NULLS LAST
+),
+last_msg_on_thread AS (
+    SELECT DISTINCT ON (c.channel, c.external_thread_id)
+        c.channel, c.external_thread_id,
+        m.id AS message_id, m.content_text, m.sent_at,
+        co.display_name AS contact_name,
+        ci.external_id  AS contact_handle
+    FROM messages m
+    JOIN conversations c ON c.id = m.conversation_id
+    JOIN contacts          co ON co.id = c.contact_id
+    JOIN channel_identities ci ON ci.id = c.channel_identity_id
+    WHERE c.external_thread_id IS NOT NULL
+    ORDER BY c.channel, c.external_thread_id, m.sent_at DESC
+),
+last_class AS (
+    SELECT DISTINCT ON (message_id, kind) message_id, kind, label
+    FROM message_classifications
+    WHERE kind IN ('sentiment', 'intent', 'priority')
+    ORDER BY message_id, kind, created_at DESC
+)
+SELECT
+    tp.conversation_id                                            AS id,
+    cwm.channel                                                   AS channel,
+    cwm.external_thread_id                                        AS external_thread_id,
+    cwm.subject                                                   AS subject,
+    'open'                                                        AS status,
+    COUNT(DISTINCT cwm.contact_id)                                AS participant_count,
+    SUM(cwm.msg_count)                                            AS message_count,
+    lmot.sent_at                                                  AS last_message_at,
+    lmot.content_text                                             AS last_message_preview,
+    lmot.contact_name                                             AS contact_name,
+    lmot.contact_handle                                           AS contact_handle,
+    (SELECT label FROM last_class WHERE message_id = lmot.message_id AND kind = 'sentiment') AS sentiment,
+    (SELECT label FROM last_class WHERE message_id = lmot.message_id AND kind = 'intent')    AS intent,
+    (SELECT label FROM last_class WHERE message_id = lmot.message_id AND kind = 'priority')  AS priority
+FROM conv_with_msgs cwm
+JOIN thread_pick        tp   ON tp.channel = cwm.channel AND tp.external_thread_id = cwm.external_thread_id
+JOIN last_msg_on_thread lmot ON lmot.channel = cwm.channel AND lmot.external_thread_id = cwm.external_thread_id
+GROUP BY tp.conversation_id, cwm.channel, cwm.external_thread_id, cwm.subject,
+         lmot.sent_at, lmot.content_text, lmot.contact_name, lmot.contact_handle, lmot.message_id
+ORDER BY lmot.sent_at DESC NULLS LAST
 """
 
 
@@ -113,7 +173,10 @@ async def list_conversations(
     group_by: GroupBy = Query("intent"),
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> ConversationsResponse:
-    rows = await conn.fetch(_SUMMARY_QUERY)
+    if group_by == "thread":
+        return await _list_threads(conn)
+
+    rows = await conn.fetch(_PER_CONVERSATION_QUERY)
     summaries = [
         ConversationSummary(
             id=r["id"],
@@ -131,13 +194,45 @@ async def list_conversations(
         )
         for r in rows
     ]
-
     groups = _group(summaries, group_by)
-    return ConversationsResponse(
-        group_by=group_by,
-        total=len(summaries),
-        groups=groups,
-    )
+    return ConversationsResponse(group_by=group_by, total=len(summaries), groups=groups)
+
+
+async def _list_threads(conn: asyncpg.Connection) -> ConversationsResponse:
+    rows = await conn.fetch(_THREAD_QUERY)
+    summaries = [
+        ConversationSummary(
+            id=r["id"],
+            contact_name=f"{int(r['participant_count'])} personas"
+                         if int(r["participant_count"]) > 1 else r["contact_name"],
+            contact_handle=r["contact_handle"],
+            channel=r["channel"],
+            last_message_at=r["last_message_at"],
+            last_message_preview=(r["last_message_preview"] or "")[:140] or None,
+            message_count=int(r["message_count"] or 0),
+            status=r["status"],
+            subject=r["subject"],
+            sentiment=r["sentiment"],
+            intent=r["intent"],
+            priority=r["priority"],
+            participant_count=int(r["participant_count"]),
+        )
+        for r in rows
+    ]
+    # One group per channel for clarity (sorted by row count).
+    buckets: dict[str, list[ConversationSummary]] = {}
+    for s in summaries:
+        buckets.setdefault(s.channel, []).append(s)
+    groups = [
+        ConversationGroup(
+            key=channel,
+            label=CHANNEL_LABELS.get(channel, channel),
+            count=len(rows),
+            conversations=rows,
+        )
+        for channel, rows in sorted(buckets.items(), key=lambda kv: -len(kv[1]))
+    ]
+    return ConversationsResponse(group_by="thread", total=len(summaries), groups=groups)
 
 
 def _group(summaries: list[ConversationSummary], group_by: GroupBy) -> list[ConversationGroup]:
@@ -151,7 +246,6 @@ def _group(summaries: list[ConversationSummary], group_by: GroupBy) -> list[Conv
     elif group_by == "sentiment":
         order = SENTIMENT_ORDER + [k for k in buckets if k not in SENTIMENT_ORDER]
     else:
-        # channel / thread → biggest first
         order = sorted(buckets.keys(), key=lambda k: -len(buckets[k]))
 
     out: list[ConversationGroup] = []
@@ -174,8 +268,6 @@ def _bucket_key(s: ConversationSummary, group_by: GroupBy) -> str:
         return s.sentiment or "neutral"
     if group_by == "channel":
         return s.channel
-    if group_by == "thread":
-        return s.subject or "Sin asunto"
     return "other"
 
 
@@ -186,7 +278,7 @@ def _bucket_label(key: str, group_by: GroupBy) -> str:
         return SENTIMENT_LABELS.get(key, key.title())
     if group_by == "channel":
         return CHANNEL_LABELS.get(key, key)
-    return key  # thread: subject is already human-readable
+    return key
 
 
 @router.get(
@@ -196,15 +288,22 @@ def _bucket_label(key: str, group_by: GroupBy) -> str:
 )
 async def get_conversation(
     conversation_id: UUID,
+    as_thread: bool = Query(False),
     conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> ConversationDetail:
+    if as_thread:
+        return await _get_thread_detail(conn, conversation_id)
+    return await _get_single_conversation(conn, conversation_id)
+
+
+async def _get_single_conversation(
+    conn: asyncpg.Connection, conversation_id: UUID,
 ) -> ConversationDetail:
     row = await conn.fetchrow(
         """
         WITH last_class AS (
             SELECT DISTINCT ON (m.conversation_id, mc.kind)
-                m.conversation_id,
-                mc.kind,
-                mc.label
+                m.conversation_id, mc.kind, mc.label
             FROM message_classifications mc
             JOIN messages m ON m.id = mc.message_id
             WHERE m.conversation_id = $1
@@ -267,6 +366,80 @@ async def get_conversation(
                 sent_at=m["sent_at"],
                 sentiment=m["sentiment"],
                 intent=m["intent"],
+            )
+            for m in msg_rows
+        ],
+    )
+
+
+async def _get_thread_detail(
+    conn: asyncpg.Connection, conversation_id: UUID,
+) -> ConversationDetail:
+    """Look up the conversation, then return every message from every contact
+    who posted on the same (channel, external_thread_id)."""
+    seed = await conn.fetchrow(
+        """
+        SELECT id, channel, external_thread_id, subject, created_at
+        FROM conversations
+        WHERE id = $1
+        """,
+        conversation_id,
+    )
+    if seed is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    if seed["external_thread_id"] is None:
+        # Falling back to single conversation if there's no thread to expand.
+        return await _get_single_conversation(conn, conversation_id)
+
+    msg_rows = await conn.fetch(
+        """
+        SELECT
+            m.id, m.direction, m.sender_type, m.content_type, m.content_text, m.sent_at,
+            co.display_name AS sender_name,
+            ci.external_id  AS sender_handle,
+            (SELECT label FROM message_classifications
+             WHERE message_id = m.id AND kind = 'sentiment'
+             ORDER BY created_at DESC LIMIT 1) AS sentiment,
+            (SELECT label FROM message_classifications
+             WHERE message_id = m.id AND kind = 'intent'
+             ORDER BY created_at DESC LIMIT 1) AS intent
+        FROM messages m
+        JOIN conversations      c  ON c.id = m.conversation_id
+        JOIN contacts           co ON co.id = c.contact_id
+        JOIN channel_identities ci ON ci.id = c.channel_identity_id
+        WHERE c.channel = $1
+          AND c.external_thread_id = $2
+        ORDER BY m.sent_at
+        """,
+        seed["channel"], seed["external_thread_id"],
+    )
+
+    participants = {(m["sender_handle"], m["sender_name"]) for m in msg_rows}
+    last_at = max((m["sent_at"] for m in msg_rows), default=None)
+
+    return ConversationDetail(
+        id=seed["id"],
+        contact_name=f"Hilo · {len(participants)} personas",
+        contact_handle=seed["external_thread_id"],
+        channel=seed["channel"],
+        status="open",
+        subject=seed["subject"],
+        created_at=seed["created_at"],
+        last_message_at=last_at,
+        is_thread=True,
+        participant_count=len(participants),
+        messages=[
+            MessageDetail(
+                id=m["id"],
+                direction=m["direction"],
+                sender_type=m["sender_type"],
+                content_type=m["content_type"],
+                content_text=m["content_text"],
+                sent_at=m["sent_at"],
+                sentiment=m["sentiment"],
+                intent=m["intent"],
+                sender_name=m["sender_name"],
+                sender_handle=m["sender_handle"],
             )
             for m in msg_rows
         ],
