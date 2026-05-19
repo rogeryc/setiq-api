@@ -475,6 +475,7 @@ async def main() -> None:
         contact_index, identity_index = await _insert_contacts(conn, tenant_id)
         await _insert_conversations_and_messages(conn, tenant_id, contact_index, identity_index)
         await _insert_mentions(conn, tenant_id)
+        await _insert_insights(conn, tenant_id)
         await _print_summary(conn, tenant_id)
     finally:
         await conn.close()
@@ -493,6 +494,7 @@ async def _wipe(conn: asyncpg.Connection, tenant_id: UUID) -> None:
         "channel_identities",
         "contacts",
         "tracked_subjects",
+        "insights",
     ):
         await conn.execute(f"DELETE FROM {table} WHERE tenant_id = $1", tenant_id)
 
@@ -740,6 +742,117 @@ async def _insert_mentions(conn: asyncpg.Connection, tenant_id: UUID) -> None:
             )
 
 
+INSIGHTS_SEED: list[dict[str, Any]] = [
+    {
+        "kind": "lead",
+        "rank": 0,
+        "title": "Thalma está siendo escuchada.",
+        "title_em": "Y empezando a pedir cosas.",
+        "body": (
+            "Sentimiento estable salvo después de la nota del lunes en Santa Cruz, "
+            "donde un sector concentró críticas. La audiencia de TikTok empuja una "
+            "serie sobre vivienda — la oportunidad tiene 3 meses."
+        ),
+        "actions": [],
+    },
+    {
+        "kind": "featured",
+        "rank": 0,
+        "title": "La nota sobre vivienda está disparando",
+        "title_em": "57 comentarios negativos",
+        "title_tail": "en 72h.",
+        "body": (
+            "Las críticas se concentran en lectoras de Santa Cruz y Cochabamba que "
+            "sienten que dejaste fuera el costo fuera del eje troncal. Sentimiento "
+            "general aún positivo (0,72), pero el cluster geográfico es contenible "
+            "si respondés con una nota lateral esta semana."
+        ),
+        "confidence": "92%",
+        "age": "hace 1h",
+        "impact": "Impacto: corte de viralización en Twitter / Threads",
+        "actions": [
+            {"label": "Abrir hilo · Pasar a borrador", "route": "/inbox", "variant": "acc"},
+            {"label": "Asignar a Sole", "variant": "ghost"},
+        ],
+    },
+    {
+        "kind": "memo",
+        "rank": 1,
+        "severity": "med",
+        "tag": "Memo 02 · Oportunidad",
+        "confidence": "Confianza 81%",
+        "title": "Audiencia 18-24 pidiendo",
+        "title_em": "serie sobre alquileres",
+        "body": (
+            "Detectamos 87 menciones espontáneas en TikTok pidiendo una serie sobre "
+            "alquileres y subarriendos, concentradas en mujeres 18-24. Sugerimos "
+            "probar un primer episodio antes de comprometer una serie completa."
+        ),
+        "footnote": "Potencial: 12-18%",
+        "actions": [{"label": "Crear segmento", "variant": "acc"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 2,
+        "severity": "med",
+        "tag": "Memo 03 · Audiencia",
+        "confidence": "Confianza 88%",
+        "title": "Cluster emergente: 184 lectoras-promotoras orgánicas",
+        "body": (
+            "Identificamos un cluster de 184 cuentas con sentimiento sostenido sobre "
+            "0,9 en los últimos 60 días, sin ningún programa formal. Recomendamos "
+            "formalizar contacto antes que otros newsletters las capten."
+        ),
+        "footnote": "Base embajadoras",
+        "actions": [{"label": "Exportar segmento"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 3,
+        "severity": "low",
+        "tag": "Memo 04 · Operación",
+        "confidence": "Confianza 74%",
+        "title": "TMR domingos en 1h 42min",
+        "body": (
+            "El tiempo medio de primera respuesta los domingos supera el SLA en 3,4×. "
+            "Recomendamos reasignar un agente del lunes al domingo durante los próximos "
+            "4 fines de semana para evaluar impacto."
+        ),
+        "footnote": "SLA en 4 semanas",
+        "actions": [{"label": "Ver calendario"}],
+    },
+]
+
+
+async def _insert_insights(conn: asyncpg.Connection, tenant_id: UUID) -> None:
+    for s in INSIGHTS_SEED:
+        await conn.execute(
+            """
+            INSERT INTO insights (
+                tenant_id, kind, severity, tag, title, title_em, title_tail,
+                body, confidence, age, impact, footnote, actions, rank, enabled
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8, $9, $10, $11, $12, $13::jsonb, $14, true
+            )
+            """,
+            tenant_id,
+            s["kind"],
+            s.get("severity"),
+            s.get("tag"),
+            s["title"],
+            s.get("title_em"),
+            s.get("title_tail"),
+            s["body"],
+            s.get("confidence"),
+            s.get("age"),
+            s.get("impact"),
+            s.get("footnote"),
+            json.dumps(s.get("actions", [])),
+            s.get("rank", 0),
+        )
+
+
 async def _print_summary(conn: asyncpg.Connection, tenant_id: UUID) -> None:
     rows = await conn.fetch(
         """
@@ -751,6 +864,7 @@ async def _print_summary(conn: asyncpg.Connection, tenant_id: UUID) -> None:
         UNION ALL SELECT 'message_classifications', COUNT(*) FROM message_classifications WHERE tenant_id = $1
         UNION ALL SELECT 'mentions', COUNT(*) FROM mentions WHERE tenant_id = $1
         UNION ALL SELECT 'mention_classifications', COUNT(*) FROM mention_classifications WHERE tenant_id = $1
+        UNION ALL SELECT 'insights', COUNT(*) FROM insights WHERE tenant_id = $1
         """,
         tenant_id,
     )

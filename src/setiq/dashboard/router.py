@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends
 from setiq.auth.dependencies import get_tenant_db
 from setiq.dashboard.schemas import (
     ChannelSlice,
+    FeaturedRecommendation,
+    InsightAction,
     KpiDelta,
+    LeadCopy,
+    Memo,
     OverviewKpi,
     OverviewResponse,
 )
@@ -165,11 +169,60 @@ async def overview(
         ),
     ]
 
+    # Insights: lead copy, featured recommendation, memos.
+    insight_rows = await conn.fetch(
+        """
+        SELECT kind, severity, tag, title, title_em, title_tail, body,
+               confidence, age, impact, footnote, actions, rank
+        FROM insights
+        WHERE deleted_at IS NULL
+          AND enabled
+          AND (valid_until IS NULL OR valid_until > NOW())
+        ORDER BY kind, rank
+        """
+    )
+
+    lead: LeadCopy | None = None
+    featured: FeaturedRecommendation | None = None
+    memos: list[Memo] = []
+    for r in insight_rows:
+        if r["kind"] == "lead" and lead is None:
+            lead = LeadCopy(
+                title=r["title"],
+                title_em=r["title_em"],
+                body=r["body"],
+            )
+        elif r["kind"] == "featured" and featured is None:
+            featured = FeaturedRecommendation(
+                title=r["title"],
+                title_em=r["title_em"],
+                title_tail=r["title_tail"],
+                body=r["body"],
+                confidence=r["confidence"],
+                age=r["age"],
+                impact=r["impact"],
+                actions=[InsightAction(**a) for a in (r["actions"] or [])],
+            )
+        elif r["kind"] == "memo":
+            memos.append(Memo(
+                severity=r["severity"] or "med",
+                tag=r["tag"] or "",
+                confidence=r["confidence"],
+                title=r["title"],
+                title_em=r["title_em"],
+                body=r["body"],
+                actions=[InsightAction(**a) for a in (r["actions"] or [])],
+                footnote=r["footnote"],
+            ))
+
     return OverviewResponse(
         kpis=kpis,
         channel_distribution=channel_distribution,
         channel_total=channel_total,
         top_growth_channel="TikTok +28%",
+        lead=lead,
+        featured_recommendation=featured,
+        memos=memos,
     )
 
 

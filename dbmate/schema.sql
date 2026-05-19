@@ -1,4 +1,4 @@
-\restrict qZ2TSMtHKZ1eGZeuZLH7zL6eeOSGm0XYN7fJ7B5BzdVUbdlw4snq01gyELKXIQ7
+\restrict 619ZbCoBLqPgV4ehq2lxuil7HaSBxEAVO5EE48ofUkCcccrf42QcpTPUMgSFX8P
 
 -- Dumped from database version 14.20 (Homebrew)
 -- Dumped by pg_dump version 14.20 (Homebrew)
@@ -153,6 +153,36 @@ CREATE TABLE public.conversations (
     closed_at timestamp with time zone,
     CONSTRAINT conversations_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram_dm'::text, 'instagram_comment'::text, 'facebook_dm'::text, 'facebook_comment'::text, 'email'::text, 'tiktok_comment'::text, 'web'::text]))),
     CONSTRAINT conversations_status_check CHECK ((status = ANY (ARRAY['open'::text, 'pending_agent'::text, 'waiting_customer'::text, 'resolved'::text, 'closed'::text])))
+);
+
+
+--
+-- Name: insights; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.insights (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    kind text NOT NULL,
+    severity text,
+    tag text,
+    title text NOT NULL,
+    title_em text,
+    title_tail text,
+    body text NOT NULL,
+    confidence text,
+    age text,
+    impact text,
+    footnote text,
+    actions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    rank integer DEFAULT 0 NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    valid_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT insights_kind_check CHECK ((kind = ANY (ARRAY['lead'::text, 'featured'::text, 'memo'::text]))),
+    CONSTRAINT insights_severity_check CHECK ((severity = ANY (ARRAY['low'::text, 'med'::text, 'high'::text])))
 );
 
 
@@ -408,6 +438,14 @@ ALTER TABLE ONLY public.conversations
 
 
 --
+-- Name: insights insights_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insights
+    ADD CONSTRAINT insights_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: mention_classifications mention_classifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -589,6 +627,13 @@ CREATE INDEX idx_conversations_tenant_status_last ON public.conversations USING 
 
 
 --
+-- Name: idx_insights_tenant_kind_rank; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insights_tenant_kind_rank ON public.insights USING btree (tenant_id, kind, rank) WHERE ((deleted_at IS NULL) AND enabled);
+
+
+--
 -- Name: idx_mention_classifications_tenant_kind_label; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -729,6 +774,13 @@ CREATE TRIGGER conversations_set_updated_at BEFORE UPDATE ON public.conversation
 
 
 --
+-- Name: insights insights_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER insights_set_updated_at BEFORE UPDATE ON public.insights FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
 -- Name: tenants tenants_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -859,6 +911,14 @@ ALTER TABLE ONLY public.conversations
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: insights insights_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insights
+    ADD CONSTRAINT insights_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -1047,6 +1107,19 @@ CREATE POLICY conversations_tenant_isolation ON public.conversations USING ((ten
 
 
 --
+-- Name: insights; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.insights ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: insights insights_tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY insights_tenant_isolation ON public.insights USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
+
+
+--
 -- Name: mention_classifications; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1141,7 +1214,7 @@ CREATE POLICY webhook_events_tenant_isolation ON public.webhook_events USING (((
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qZ2TSMtHKZ1eGZeuZLH7zL6eeOSGm0XYN7fJ7B5BzdVUbdlw4snq01gyELKXIQ7
+\unrestrict 619ZbCoBLqPgV4ehq2lxuil7HaSBxEAVO5EE48ofUkCcccrf42QcpTPUMgSFX8P
 
 
 --
@@ -1155,4 +1228,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260518230000'),
     ('20260518240000'),
     ('20260518250000'),
-    ('20260519130000');
+    ('20260519130000'),
+    ('20260519140000');
