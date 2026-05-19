@@ -37,6 +37,9 @@ docker compose up -d
 
 # 8. Run the API
 uvicorn setiq.main:app --reload
+
+# 9. In a separate terminal, run the Arq worker (drains classification jobs)
+arq setiq.workers.runner.WorkerSettings
 ```
 
 API runs at http://localhost:8000. Health check: http://localhost:8000/health.

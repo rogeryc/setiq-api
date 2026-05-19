@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from setiq import db
+from setiq import db, queue
 from setiq.auth import router as auth_router
 from setiq.config import settings
 from setiq.ingestion import meta_router
@@ -13,9 +13,11 @@ from setiq.tracked_subjects import router as tracked_subjects_router
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await db.connect()
+    await queue.connect()
     try:
         yield
     finally:
+        await queue.disconnect()
         await db.disconnect()
 
 

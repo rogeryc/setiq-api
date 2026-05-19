@@ -19,7 +19,7 @@ from uuid import UUID
 
 import asyncpg
 
-from setiq import db
+from setiq import db, queue
 
 logger = logging.getLogger(__name__)
 
@@ -184,21 +184,22 @@ async def _insert_message(
     content_text: str,
     external_id: str | None,
     raw_payload: dict[str, Any],
-) -> None:
-    """Insert a message idempotently (unique on external_id)."""
+) -> UUID | None:
+    """Insert a message idempotently (unique on external_id). Returns the
+    new message id, or None if the message was already ingested."""
     try:
-        await conn.execute(
+        return await conn.fetchval(
             """
             INSERT INTO messages (
                 tenant_id, conversation_id, direction, sender_type,
                 content_type, content_text, external_id, sent_at, raw_payload
             ) VALUES ($1, $2, 'inbound', 'contact', 'text', $3, $4, NOW(), $5)
+            RETURNING id
             """,
             tenant_id, conversation_id, content_text, external_id, raw_payload,
         )
     except asyncpg.UniqueViolationError:
-        # Already ingested (idempotent on external_id).
-        pass
+        return None
 
 
 async def _store_ig_comment(
@@ -221,6 +222,8 @@ async def _store_ig_comment(
     conv_id = await _upsert_conversation(
         conn, tenant_id, contact_id, identity_id, "instagram_comment", media_id,
     )
-    await _insert_message(
+    msg_id = await _insert_message(
         conn, tenant_id, conv_id, text, external_id, value,
     )
+    if msg_id is not None:
+        await queue.enqueue_classify_message(msg_id)

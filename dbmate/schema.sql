@@ -1,4 +1,4 @@
-\restrict gNHDCe6HbLYkDNgUBJN8sXIFgvTtK3ephclsBCgENpmxIxgEB3DoIBy0wZzeIg1
+\restrict qZ2TSMtHKZ1eGZeuZLH7zL6eeOSGm0XYN7fJ7B5BzdVUbdlw4snq01gyELKXIQ7
 
 -- Dumped from database version 14.20 (Homebrew)
 -- Dumped by pg_dump version 14.20 (Homebrew)
@@ -680,10 +680,10 @@ CREATE INDEX idx_webhook_events_status_received ON public.webhook_events USING b
 
 
 --
--- Name: uq_conversations_external_thread; Type: INDEX; Schema: public; Owner: -
+-- Name: uq_conversations_thread; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX uq_conversations_external_thread ON public.conversations USING btree (tenant_id, channel, external_thread_id) WHERE (external_thread_id IS NOT NULL);
+CREATE UNIQUE INDEX uq_conversations_thread ON public.conversations USING btree (tenant_id, channel, contact_id, external_thread_id) WHERE (external_thread_id IS NOT NULL);
 
 
 --
@@ -1141,7 +1141,7 @@ CREATE POLICY webhook_events_tenant_isolation ON public.webhook_events USING (((
 -- PostgreSQL database dump complete
 --
 
-\unrestrict gNHDCe6HbLYkDNgUBJN8sXIFgvTtK3ephclsBCgENpmxIxgEB3DoIBy0wZzeIg1
+\unrestrict qZ2TSMtHKZ1eGZeuZLH7zL6eeOSGm0XYN7fJ7B5BzdVUbdlw4snq01gyELKXIQ7
 
 
 --
@@ -1154,4 +1154,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260518220000'),
     ('20260518230000'),
     ('20260518240000'),
-    ('20260518250000');
+    ('20260518250000'),
+    ('20260519130000');
