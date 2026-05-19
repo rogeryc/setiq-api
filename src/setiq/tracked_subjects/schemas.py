@@ -34,3 +34,7 @@ class TrackedSubjectResponse(BaseModel):
     enabled: bool
     created_at: datetime
     updated_at: datetime
+    # Number of mentions ingested for this subject (off-property mentions
+    # from Apify / IG Business Discovery / etc.).
+    mention_count: int = 0
+    last_mention_at: datetime | None = None

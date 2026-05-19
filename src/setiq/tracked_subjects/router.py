@@ -24,20 +24,25 @@ def _row_to_response(row: asyncpg.Record) -> TrackedSubjectResponse:
         enabled=row["enabled"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        mention_count=int(row["mention_count"] or 0) if "mention_count" in row else 0,
+        last_mention_at=row["last_mention_at"] if "last_mention_at" in row else None,
     )
 
 
-@router.get("", response_model=list[TrackedSubjectResponse])
+@router.get("", response_model=list[TrackedSubjectResponse], response_model_exclude_none=True)
 async def list_subjects(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> list[TrackedSubjectResponse]:
     rows = await conn.fetch(
         """
-        SELECT id, kind, label, handles, keywords, hashtags, enabled,
-               created_at, updated_at
-        FROM tracked_subjects
-        WHERE deleted_at IS NULL
-        ORDER BY created_at DESC
+        SELECT
+            ts.id, ts.kind, ts.label, ts.handles, ts.keywords, ts.hashtags,
+            ts.enabled, ts.created_at, ts.updated_at,
+            (SELECT COUNT(*) FROM mentions m WHERE m.tracked_subject_id = ts.id) AS mention_count,
+            (SELECT MAX(content_published_at) FROM mentions m WHERE m.tracked_subject_id = ts.id) AS last_mention_at
+        FROM tracked_subjects ts
+        WHERE ts.deleted_at IS NULL
+        ORDER BY ts.created_at DESC
         """
     )
     return [_row_to_response(r) for r in rows]
