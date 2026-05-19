@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from setiq import db, queue
 from setiq.auth import router as auth_router
 from setiq.config import settings
+from setiq.conversations import router as conversations_router
 from setiq.dashboard import router as dashboard_router
 from setiq.ingestion import meta_router
 from setiq.tracked_subjects import router as tracked_subjects_router
@@ -40,6 +41,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(tracked_subjects_router)
 app.include_router(dashboard_router)
+app.include_router(conversations_router)
 app.include_router(meta_router)
 
 
