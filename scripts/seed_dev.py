@@ -36,7 +36,20 @@ async def main() -> None:
                     'Thalma',
                     'active',
                     '{"setiq": {"tier": "pro"}, "kaizen": {"enabled": true}}'::jsonb,
-                    '{"meta": {"page_ids": [], "instagram_business_ids": ["17841400000000000"]}}'::jsonb
+                    '{
+                        "meta": {
+                            "page_ids": ["100000000000001"],
+                            "instagram_business_ids": ["17841400000000000"]
+                        },
+                        "tiktok": {"handle": "@thalma.periodista"},
+                        "email":  {"address": "hola@thalma.bo"},
+                        "channel_labels": {
+                            "instagram": "@thalma.bo",
+                            "facebook":  "Thalma · Página",
+                            "tiktok":    "@thalma.periodista",
+                            "email":     "hola@thalma.bo"
+                        }
+                    }'::jsonb
                 )
                 ON CONFLICT (slug) DO UPDATE SET
                     name     = EXCLUDED.name,
