@@ -15,7 +15,7 @@ Convenciones:
 Para cualquier integración oficial con WhatsApp, Instagram o Facebook, esto se hace **una vez por cliente** (no aplica si vamos por Apify):
 
 1. **Crear Meta Business Manager** ([business.facebook.com](https://business.facebook.com)) si el cliente no lo tiene.
-2. **Business Verification** — subir documentos legales (RUT/CUIT, dirección, sitio web). Tarda 2-5 días hábiles. Sin esto, ninguna integración oficial funciona.
+2. **Business Verification** — subir documentos legales (NIT, dirección, sitio web). Tarda 2-5 días hábiles. Sin esto, ninguna integración oficial funciona.
 3. **Facebook Page del cliente** vinculada al Business Manager.
 4. **Cuenta de Instagram Business** linkeada a esa Facebook Page (si el cliente está en IG).
 5. **Crear nuestra Meta App** ([developers.facebook.com](https://developers.facebook.com)) — una sola app cubre WhatsApp + IG + Messenger.

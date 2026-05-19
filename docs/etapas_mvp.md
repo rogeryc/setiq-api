@@ -35,7 +35,7 @@ Pasos secuenciales para llevar SETIQ desde "tres amigos sin empresa" hasta "clie
    - **Keywords / hashtags temáticos** — temas que cubre y le interesa monitorear cómo se está hablando de ellos.
 
 ### Lo que NO se hace en esta etapa
-- ❌ Business Verification (requiere CUIT / empresa formada).
+- ❌ Business Verification (requiere NIT / empresa formada).
 - ❌ Incorporar empresa.
 - ❌ App Review.
 - ❌ WhatsApp Business setup.
@@ -178,11 +178,11 @@ Los actors leen su lista de objetivos desde la tabla `tracked_subjects` filtrada
 - ITALSA dice "queremos avanzar / firmar".
 
 **Pasos:**
-1. Reunión con contador. Decidir estructura:
-   - **Monotributo** (Roger personal) — barato, rápido, hasta cap de facturación. Buena opción si el ingreso inicial es chico y Roger factura solo.
-   - **SRL** — costo de constitución (~US$500-1500) + contador mensual. Hace falta si los tres comparten equity formalmente o si los contratos exigen empresa.
-2. Constituir.
-3. Obtener CUIT.
+1. Reunión con contador. Decidir estructura legal en Bolivia:
+   - **Unipersonal** (Roger personal) — más barato y rápido, registro en FUNDEMPRESA + NIT. Buena opción si el ingreso inicial es chico y Roger factura solo.
+   - **SRL** — costo de constitución mayor + contador mensual. Hace falta si los tres comparten equity formalmente o si los contratos exigen empresa.
+2. Constituir en FUNDEMPRESA.
+3. Obtener NIT en Impuestos Nacionales.
 4. Hacer Business Verification en Meta Business Manager — subir documentos legales. Tarda 2-5 días hábiles.
 
 ---

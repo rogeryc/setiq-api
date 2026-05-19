@@ -5,13 +5,13 @@ Wipes and re-inserts:
   - ~40 contacts + their channel_identities
   - ~30 conversations across IG comments / IG DMs / FB comments /
     Messenger DMs / TikTok comments / email
-  - ~120 messages with realistic Argentinian-Spanish content for a
+  - ~120 messages with realistic Bolivian-Spanish content for a
     journalist's audience
-  - ~120 message_classifications (sentiment, intent, priority,
-    opportunity, language) — hand-set so dashboards have data without
-    needing the Anthropic key
+  - message_classifications (sentiment, intent, priority, opportunity,
+    language) — hand-set so dashboards have data without needing the
+    Anthropic key
   - ~40 mentions (off-property posts mentioning Thalma or competitors)
-  - ~40 mention_classifications
+  - mention_classifications
 
 Idempotent: re-running fully resets the sample data for this tenant.
 Run `scripts/seed_dev.py` first if the tenant doesn't exist yet.
@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import random
 import sys
 from datetime import datetime, timedelta, timezone
@@ -51,7 +52,7 @@ TRACKED_SUBJECTS: list[dict[str, Any]] = [
     {
         "kind": "brand",
         "label": "Thalma (marca propia)",
-        "keywords": ["thalma", "thalma news", "thalma argentina"],
+        "keywords": ["thalma", "thalma news", "thalma bolivia"],
         "hashtags": ["thalma", "notathalma"],
         "handles": {},
     },
@@ -79,15 +80,15 @@ TRACKED_SUBJECTS: list[dict[str, Any]] = [
     {
         "kind": "keyword",
         "label": "Vivienda / alquileres",
-        "keywords": ["vivienda", "alquileres", "ley de alquileres", "inquilinos"],
-        "hashtags": ["alquileres", "leydealquileres"],
+        "keywords": ["vivienda", "alquileres", "inquilinos", "anticrético"],
+        "hashtags": ["alquileres", "vivienda"],
         "handles": {},
     },
     {
         "kind": "hashtag",
-        "label": "Política provincial",
+        "label": "Política departamental",
         "keywords": [],
-        "hashtags": ["interior", "rosario", "cordoba", "provincias"],
+        "hashtags": ["santacruz", "lapaz", "cochabamba", "ejetroncal"],
         "handles": {},
     },
 ]
@@ -95,36 +96,36 @@ TRACKED_SUBJECTS: list[dict[str, Any]] = [
 
 # (handle_on_ig, name, fb_handle_or_none, sentiment_lean)
 CONTACTS: list[tuple[str, str, str | None, str]] = [
-    ("maria_fan", "María González", "maria.gonzalez.bsas", "positive"),
-    ("nico_c_arg", "Nicolás Cabrera", None, "positive"),
-    ("luchitobsas", "Lucho B.", "lucho.b.aires", "neutral"),
-    ("lectorosario", "El Lector de Rosario", None, "negative"),
-    ("analiacba", "Analía Sosa", "analia.sosa.cba", "negative"),
+    ("maria_fan", "María Gonzales", "maria.gonzales.sc", "positive"),
+    ("nico_c_bo", "Nicolás Cabrera", None, "positive"),
+    ("luchitolapaz", "Lucho B.", "lucho.b.lapaz", "neutral"),
+    ("lectorsantacruz", "El Lector de Santa Cruz", None, "negative"),
+    ("analiacbba", "Analía Soliz", "analia.s.cbba", "negative"),
     ("criticox", "El Crítico", None, "negative"),
     ("clara_fan_thalma", "Clara Méndez", "clara.mendez", "positive"),
     ("sofiacostas", "Sofía Costas", None, "positive"),
     ("juampi_ok", "Juan Pablo R.", "juampi.r", "neutral"),
     ("perezpaula", "Paula Pérez", None, "positive"),
-    ("mateo.mza", "Mateo (Mendoza)", "mateomza", "neutral"),
-    ("camilatuc", "Camila Tucumán", None, "positive"),
-    ("luisbahia", "Luis (Bahía)", None, "neutral"),
+    ("mateo.tarija", "Mateo (Tarija)", "mateotj", "neutral"),
+    ("camilaoruro", "Camila Oruro", None, "positive"),
+    ("luissucre", "Luis (Sucre)", None, "neutral"),
     ("anto.f", "Antonella F.", "antonella.f", "positive"),
     ("ferpiri", "Fer Piriz", None, "positive"),
-    ("emi_rosario", "Emi de Rosario", None, "negative"),
-    ("malenaq", "Malena Q.", "malena.q.arg", "negative"),
-    ("nahuel_lit", "Nahuel Litoral", None, "neutral"),
-    ("marisamza", "Marisa M.", None, "negative"),
-    ("vale.santafe", "Valeria (Santa Fe)", "vale.santafe", "neutral"),
-    ("rodri.cordoba", "Rodrigo C.", None, "positive"),
+    ("emi_santacruz", "Emi de Santa Cruz", None, "negative"),
+    ("malenaq", "Malena Q.", "malena.q.bo", "negative"),
+    ("nahuel_alt", "Nahuel (El Alto)", None, "neutral"),
+    ("marisasc", "Marisa M.", None, "negative"),
+    ("vale.cbba", "Valeria (Cochabamba)", "vale.cbba", "neutral"),
+    ("rodri.cochabamba", "Rodrigo C.", None, "positive"),
     ("xime_estudia", "Ximena (estudiante)", None, "positive"),
-    ("agus_v", "Agus V.", "agus.v.arg", "neutral"),
-    ("flor.bbsas", "Flor B.", None, "positive"),
+    ("agus_v", "Agus V.", "agus.v.bo", "neutral"),
+    ("flor.lapaz", "Flor B.", None, "positive"),
     ("damianp", "Damián P.", None, "negative"),
     ("luli.k", "Luli K.", "luli.k", "positive"),
     ("anonimo_42", "—", None, "negative"),  # anonymous
     ("anonimo_91", "—", None, "neutral"),
     ("tincho.b", "Martín B.", None, "neutral"),
-    ("seba.r", "Sebastián R.", "seba.r.bsas", "positive"),
+    ("seba.r", "Sebastián R.", "seba.r.lapaz", "positive"),
     ("nadia.s", "Nadia S.", None, "positive"),
     ("nora.f", "Nora F.", "nora.f", "negative"),
     ("franky", "Francisco (Franky)", None, "neutral"),
@@ -132,14 +133,13 @@ CONTACTS: list[tuple[str, str, str | None, str]] = [
     ("juli.rio", "Julián Río", None, "neutral"),
     ("dario.mendieta", "Darío Mendieta", "dario.mendieta", "positive"),
     ("yamila_m", "Yamila M.", None, "neutral"),
-    ("carla.t", "Carla T.", "carla.t.arg", "positive"),
+    ("carla.t", "Carla T.", "carla.t.bo", "positive"),
     ("pancho.alquila", "Pancho (alquiler)", None, "negative"),
     ("ines.l", "Inés L.", "ines.l", "positive"),
 ]
 
 
-# Templates per (channel, intent, sentiment_lean) → list of message texts
-# Keys: ("ig_comment"|"ig_dm"|"fb_comment"|"fb_dm"|"tiktok_comment"|"email", intent, sentiment)
+# Templates per (intent, sentiment_lean) → list of message texts
 TEMPLATES: dict[tuple[str, str], list[str]] = {
     ("praise", "positive"): [
         "Excelente nota como siempre 👏",
@@ -150,8 +150,8 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
         "Te seguís ganando mi suscripción, una grosa",
     ],
     ("complaint", "negative"): [
-        "Dejaste afuera el costo real en provincias.",
-        "Mucha CABA y poca calle. La realidad acá es otra.",
+        "Dejaste afuera el costo real fuera del eje troncal.",
+        "Mucho centro y poca calle. La realidad acá es otra.",
         "Esa cifra no cierra, hablá con quien alquila en serio",
         "Sesgada hacia un solo lado, me decepcionó la nota",
         "Faltó la voz de quien alquila hace 5 años, no de un experto",
@@ -160,7 +160,7 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
     ("question", "neutral"): [
         "Cuándo publicás la siguiente parte?",
         "Tenés fuente para el dato del 38%? Me interesa citarlo",
-        "Saldrá nota sobre vivienda en interior también?",
+        "Saldrá nota sobre vivienda en El Alto también?",
         "Hay versión en podcast de esta nota?",
         "Quién es la fuente del párrafo 3?",
     ],
@@ -178,7 +178,7 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
     ],
     ("spam", "neutral"): [
         "🔥🔥🔥 visitanos en bit.ly/xxxx",
-        "Gana 50.000 ARS por día desde casa - DM",
+        "Gana 5.000 Bs por día desde casa - DM",
         "Hola hermosa, te escribo por DM",
     ],
     ("praise", "neutral"): [
@@ -188,7 +188,7 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
 }
 
 
-# Conversation "themes" — title + channel + how many messages
+# Conversation themes
 CONVERSATION_THEMES: list[dict[str, Any]] = [
     {
         "channel": "instagram_comment",
@@ -201,7 +201,7 @@ CONVERSATION_THEMES: list[dict[str, Any]] = [
     {
         "channel": "instagram_comment",
         "thread_id": "ig_post_002_alquileres",
-        "subject": "Reel sobre ley de alquileres",
+        "subject": "Reel sobre alquileres en Santa Cruz",
         "default_intent_mix": [("praise", "positive"), ("question", "neutral"), ("complaint", "negative")],
         "n_contacts": 7,
         "n_messages": 17,
@@ -216,8 +216,8 @@ CONVERSATION_THEMES: list[dict[str, Any]] = [
     },
     {
         "channel": "instagram_comment",
-        "thread_id": "ig_post_003_provincias",
-        "subject": "Comentarios sobre cobertura del interior",
+        "thread_id": "ig_post_003_eje_troncal",
+        "subject": "Comentarios sobre cobertura fuera del eje",
         "default_intent_mix": [("complaint", "negative"), ("praise", "positive")],
         "n_contacts": 6,
         "n_messages": 15,
@@ -233,7 +233,7 @@ CONVERSATION_THEMES: list[dict[str, Any]] = [
     {
         "channel": "facebook_comment",
         "thread_id": "fb_post_a",
-        "subject": "Comentarios FB en nota de provincias",
+        "subject": "Comentarios FB en nota departamental",
         "default_intent_mix": [("complaint", "negative"), ("praise", "neutral")],
         "n_contacts": 5,
         "n_messages": 11,
@@ -259,7 +259,6 @@ CONVERSATION_THEMES: list[dict[str, Any]] = [
 
 # Off-property mentions (Apify-style scraped posts)
 MENTIONS: list[dict[str, Any]] = [
-    # Mentions of Thalma's brand on other people's content
     {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@valentinaponce", "author_name": "Valentina Ponce",
      "text": "Justo hoy hablábamos de esto con amigas — recomiendo seguir a thalma para entender el tema",
@@ -270,15 +269,15 @@ MENTIONS: list[dict[str, Any]] = [
      "sentiment": "positive", "intent": "praise"},
     {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@melitam", "author_name": "Melisa M.",
-     "text": "@thalma tenés que hacer una nota sobre el aumento en córdoba, te lo pido",
+     "text": "@thalma tenés que hacer una nota sobre el aumento en Cochabamba, te lo pido",
      "sentiment": "neutral", "intent": "question"},
     {"platform": "tiktok", "kind": "mention", "subject_label": "Vivienda / alquileres",
      "author_handle": "@fernandazz", "author_name": "Fer",
-     "text": "Esto de la #leydealquileres ya no da más, estoy hace 3 meses buscando",
+     "text": "Esto de los alquileres ya no da más, estoy hace 3 meses buscando en Santa Cruz",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "tiktok", "kind": "mention", "subject_label": "Vivienda / alquileres",
-     "author_handle": "@nicobsas", "author_name": "Nico",
-     "text": "Nadie alquila por 6 meses, todos te piden año. #alquileres",
+     "author_handle": "@nicolp", "author_name": "Nico",
+     "text": "Nadie alquila sin anticrético, todos te piden 10 mil dólares. #alquileres",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
      "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
@@ -286,7 +285,7 @@ MENTIONS: list[dict[str, Any]] = [
      "sentiment": "neutral", "intent": "other"},
     {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
      "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
-     "text": "Recorrida por Mendoza hablando con productores locales",
+     "text": "Recorrida por Tarija hablando con productores locales",
      "sentiment": "neutral", "intent": "other"},
     {"platform": "tiktok", "kind": "post", "subject_label": "Diego Penna",
      "author_handle": "@dpenna", "author_name": "Diego Penna",
@@ -302,22 +301,22 @@ MENTIONS: list[dict[str, Any]] = [
      "sentiment": "neutral", "intent": "other"},
     {"platform": "web", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@andreaperiodista", "author_name": "Andrea L.",
-     "text": "Citaron a thalma en La Nación hoy, bien merecido el reconocimiento",
+     "text": "Citaron a thalma en El Deber hoy, bien merecido el reconocimiento",
      "sentiment": "positive", "intent": "praise"},
     {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
-     "author_handle": "@nicocba", "author_name": "Nico Córdoba",
-     "text": "En Córdoba el alquiler subió 280% desde 2023 — ¿quién investiga esto?",
+     "author_handle": "@nicococh", "author_name": "Nico Cochabamba",
+     "text": "En Cochabamba el alquiler subió 80% en dos años — ¿quién investiga esto?",
      "sentiment": "negative", "intent": "complaint"},
-    {"platform": "instagram", "kind": "mention", "subject_label": "Política provincial",
-     "author_handle": "@marisol.rosario", "author_name": "Marisol",
-     "text": "Rosario está al rojo vivo y nadie le dedica una nota de fondo",
+    {"platform": "instagram", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "@marisol.santacruz", "author_name": "Marisol",
+     "text": "Santa Cruz está al rojo vivo y nadie le dedica una nota de fondo",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@maximinx", "author_name": "Maxi M.",
      "text": "Acabo de descubrir el newsletter de thalma y no salgo de la cama",
      "sentiment": "positive", "intent": "praise"},
     {"platform": "facebook", "kind": "mention", "subject_label": "Thalma (marca propia)",
-     "author_handle": "rominam.bsas", "author_name": "Romina M.",
+     "author_handle": "rominam.lpz", "author_name": "Romina M.",
      "text": "Le mandé el último newsletter de thalma a mis viejos, les voló la cabeza",
      "sentiment": "positive", "intent": "praise"},
     {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
@@ -328,9 +327,9 @@ MENTIONS: list[dict[str, Any]] = [
      "author_handle": "@dpenna", "author_name": "Diego Penna",
      "text": "Por qué la última medida del gobierno no hace lo que dice que hace",
      "sentiment": "neutral", "intent": "other"},
-    {"platform": "instagram", "kind": "mention", "subject_label": "Política provincial",
-     "author_handle": "@gastoncordoba", "author_name": "Gastón",
-     "text": "Otra vez nos olvidan a los del #interior, parece que solo existe el AMBA",
+    {"platform": "instagram", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "@gastonsucre", "author_name": "Gastón",
+     "text": "Otra vez nos olvidan a los del #interior, parece que solo existe el #ejetroncal",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@isidoraok", "author_name": "Isidora",
@@ -341,7 +340,7 @@ MENTIONS: list[dict[str, Any]] = [
      "text": "Me suscribí al newsletter de thalma y vale cada peso",
      "sentiment": "positive", "intent": "purchase_intent"},
     {"platform": "web", "kind": "mention", "subject_label": "Vivienda / alquileres",
-     "author_handle": "@inmobiliariasA", "author_name": "Sector inmobiliario AR",
+     "author_handle": "@inmobiliariasBO", "author_name": "Sector inmobiliario BO",
      "text": "Los datos sobre alquileres en redes son falsos, hay que ver el mercado real",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "facebook", "kind": "mention", "subject_label": "Thalma (marca propia)",
@@ -358,11 +357,11 @@ MENTIONS: list[dict[str, Any]] = [
      "sentiment": "neutral", "intent": "other"},
     {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
      "author_handle": "@dieguivos", "author_name": "Diego V.",
-     "text": "Acabo de rescindir el contrato, otro mes sin techo, gracias gobierno",
+     "text": "Acabo de rescindir el contrato, otro mes sin techo en La Paz",
      "sentiment": "negative", "intent": "complaint"},
-    {"platform": "tiktok", "kind": "mention", "subject_label": "Política provincial",
-     "author_handle": "@solrosario", "author_name": "Sol",
-     "text": "Por qué nadie habla del #interior? Acá la inflación es peor #rosario",
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "@solsantacruz", "author_name": "Sol",
+     "text": "Por qué nadie habla del #interior? Acá la inflación es peor #santacruz",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
      "author_handle": "@gimenaperiodismo", "author_name": "Gime",
@@ -392,9 +391,9 @@ MENTIONS: list[dict[str, Any]] = [
      "author_handle": "@elenajournal", "author_name": "Elena",
      "text": "El último newsletter de thalma me hizo pensar todo el día",
      "sentiment": "positive", "intent": "praise"},
-    {"platform": "facebook", "kind": "mention", "subject_label": "Política provincial",
+    {"platform": "facebook", "kind": "mention", "subject_label": "Política departamental",
      "author_handle": "andresgomez", "author_name": "Andrés G.",
-     "text": "En Mendoza la cosa está difícil pero nadie del centro la cubre",
+     "text": "En Tarija la cosa está difícil pero nadie del centro la cubre",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "tiktok", "kind": "post", "subject_label": "La Trinchera (newsletter)",
      "author_handle": "@latrinchera.news", "author_name": "La Trinchera",
@@ -413,7 +412,7 @@ MENTIONS: list[dict[str, Any]] = [
      "text": "@thalma cuándo arrancás con la serie completa sobre alquileres? lo espero",
      "sentiment": "positive", "intent": "purchase_intent"},
     {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
-     "author_handle": "@inquilinaCABA", "author_name": "Inquilina CABA",
+     "author_handle": "@inquilinalapaz", "author_name": "Inquilina La Paz",
      "text": "El aumento del 12% mensual no es legal, no lo paguen",
      "sentiment": "negative", "intent": "complaint"},
     {"platform": "web", "kind": "mention", "subject_label": "Thalma (marca propia)",
@@ -427,17 +426,6 @@ MENTIONS: list[dict[str, Any]] = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-CLASSIFICATION_KINDS = {
-    "praise": "praise",
-    "complaint": "complaint",
-    "question": "question",
-    "purchase_intent": "purchase_intent",
-    "support_request": "support_request",
-    "spam": "spam",
-    "other": "other",
-}
-
-
 def random_intent_and_sentiment(mix: list[tuple[str, str]]) -> tuple[str, str]:
     return random.choice(mix)
 
@@ -445,7 +433,6 @@ def random_intent_and_sentiment(mix: list[tuple[str, str]]) -> tuple[str, str]:
 def pick_text(intent: str, sentiment: str) -> str:
     bucket = TEMPLATES.get((intent, sentiment))
     if bucket is None:
-        # Fallback to praise/positive
         bucket = TEMPLATES[("praise", "positive")]
     return random.choice(bucket)
 
@@ -483,9 +470,7 @@ async def main() -> None:
                 f"tenant '{TENANT_SLUG}' not found. Run scripts/seed_dev.py first."
             )
 
-        # Wipe everything we own for this tenant. Cascades take care of children.
         await _wipe(conn, tenant_id)
-
         await _insert_tracked_subjects(conn, tenant_id)
         contact_index, identity_index = await _insert_contacts(conn, tenant_id)
         await _insert_conversations_and_messages(conn, tenant_id, contact_index, identity_index)
@@ -496,9 +481,6 @@ async def main() -> None:
 
 
 async def _wipe(conn: asyncpg.Connection, tenant_id: UUID) -> None:
-    # message_classifications, message_attachments, messages cascade from conversations
-    # mention_classifications cascade from mentions
-    # channel_identities cascade from contacts
     for table in (
         "mention_classifications",
         "mentions",
@@ -526,7 +508,7 @@ async def _insert_tracked_subjects(conn: asyncpg.Connection, tenant_id: UUID) ->
             tenant_id,
             s["kind"],
             s["label"],
-            __import__("json").dumps(s["handles"]),
+            json.dumps(s["handles"]),
             s["keywords"],
             s["hashtags"],
         )
@@ -535,7 +517,6 @@ async def _insert_tracked_subjects(conn: asyncpg.Connection, tenant_id: UUID) ->
 async def _insert_contacts(
     conn: asyncpg.Connection, tenant_id: UUID
 ) -> tuple[list[UUID], dict[tuple[UUID, str], UUID]]:
-    """Returns (contact_ids in order, {(contact_id, channel): identity_id})."""
     contact_ids: list[UUID] = []
     identity_map: dict[tuple[UUID, str], UUID] = {}
     for (ig_handle, name, fb_handle, _lean) in CONTACTS:
@@ -574,6 +555,30 @@ async def _insert_contacts(
                 tenant_id, contact_id, fb_handle, name,
             )
             identity_map[(contact_id, "facebook")] = fb_id
+        # Half of contacts also have TikTok; one-third have email.
+        if random.random() < 0.5:
+            tt_id = await conn.fetchval(
+                """
+                INSERT INTO channel_identities (
+                    tenant_id, contact_id, channel, external_id, display_name, verified
+                ) VALUES ($1, $2, 'tiktok', $3, $4, false)
+                RETURNING id
+                """,
+                tenant_id, contact_id, f"@{ig_handle}.tt", name,
+            )
+            identity_map[(contact_id, "tiktok")] = tt_id
+        if random.random() < 0.35:
+            email_handle = f"{ig_handle.replace('.', '_')}@example.com"
+            em_id = await conn.fetchval(
+                """
+                INSERT INTO channel_identities (
+                    tenant_id, contact_id, channel, external_id, display_name, verified
+                ) VALUES ($1, $2, 'email', $3, $4, false)
+                RETURNING id
+                """,
+                tenant_id, contact_id, email_handle, name,
+            )
+            identity_map[(contact_id, "email")] = em_id
     return contact_ids, identity_map
 
 
@@ -587,7 +592,6 @@ async def _insert_conversations_and_messages(
     for theme in CONVERSATION_THEMES:
         channel: str = theme["channel"]
         identity_channel = _identity_channel_for(channel)
-        # Eligible contacts: those who have an identity on this channel
         eligible = [c for c in contact_ids if (c, identity_channel) in identity_map]
         if not eligible:
             continue
@@ -611,7 +615,6 @@ async def _insert_conversations_and_messages(
                 theme["thread_id"], theme["subject"], base_time,
             )
 
-            # Generate messages for this contact within the thread
             n_msgs = random.randint(max(1, msgs_per_contact - 1), msgs_per_contact + 1)
             for m_idx in range(n_msgs):
                 intent, sentiment = random_intent_and_sentiment(theme["default_intent_mix"])
@@ -643,7 +646,6 @@ async def _insert_conversations_and_messages(
 
 
 def _identity_channel_for(conv_channel: str) -> str:
-    """Map conversation.channel → channel_identities.channel."""
     if conv_channel.startswith("instagram"):
         return "instagram"
     if conv_channel.startswith("facebook"):
@@ -684,7 +686,6 @@ async def _insert_message_classifications(
 
 
 async def _insert_mentions(conn: asyncpg.Connection, tenant_id: UUID) -> None:
-    # Map subject label → subject id
     sub_rows = await conn.fetch(
         "SELECT id, label FROM tracked_subjects WHERE tenant_id = $1",
         tenant_id,
@@ -707,7 +708,7 @@ async def _insert_mentions(conn: asyncpg.Connection, tenant_id: UUID) -> None:
             tenant_id, sub_id, m["platform"], m["kind"],
             m["author_handle"], m["author_name"],
             m["text"], f"https://example.com/{m['platform']}/seed_{idx:03d}", published,
-            __import__("json").dumps({
+            json.dumps({
                 "likes": random.randint(0, 1500),
                 "comments_count": random.randint(0, 200),
                 "shares": random.randint(0, 100),
@@ -716,7 +717,6 @@ async def _insert_mentions(conn: asyncpg.Connection, tenant_id: UUID) -> None:
             '{"source": "seed_sample"}',
             f"seed_run_{idx // 10:02d}",
         )
-        # Classifications for the mention
         sentiment = m["sentiment"]
         intent = m["intent"]
         rows = [
