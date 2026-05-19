@@ -46,7 +46,7 @@ _PLATFORM_LABELS = {
 }
 
 
-@router.get("/overview", response_model=OverviewResponse)
+@router.get("/overview", response_model=OverviewResponse, response_model_exclude_none=True)
 async def overview(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> OverviewResponse:
