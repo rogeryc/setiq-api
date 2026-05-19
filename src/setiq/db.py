@@ -11,7 +11,7 @@ _pool: asyncpg.Pool | None = None
 async def connect() -> None:
     global _pool
     _pool = await asyncpg.create_pool(
-        settings.database_url,
+        settings.app_database_url,
         min_size=2,
         max_size=10,
     )
@@ -34,3 +34,17 @@ def pool() -> asyncpg.Pool:
 async def acquire() -> AsyncIterator[asyncpg.Connection]:
     async with pool().acquire() as conn:
         yield conn
+
+
+@asynccontextmanager
+async def acquire_for_tenant(tenant_id: str) -> AsyncIterator[asyncpg.Connection]:
+    """Acquire a connection inside a transaction with `app.current_tenant` set,
+    so RLS policies on tenant-scoped tables enforce isolation for the duration
+    of the request."""
+    async with pool().acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.current_tenant', $1, true)",
+                tenant_id,
+            )
+            yield conn
