@@ -2,10 +2,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from setiq import db, queue
 from setiq.auth import router as auth_router
 from setiq.config import settings
+from setiq.dashboard import router as dashboard_router
 from setiq.ingestion import meta_router
 from setiq.tracked_subjects import router as tracked_subjects_router
 
@@ -27,8 +29,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4200"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(tracked_subjects_router)
+app.include_router(dashboard_router)
 app.include_router(meta_router)
 
 
