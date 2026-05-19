@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60
 
+    # Meta webhook
+    meta_app_secret: str = ""
+    meta_webhook_verify_token: str = "dev_only_change_me"
+
     anthropic_api_key: str = ""
 
 
