@@ -12,12 +12,16 @@ Meta's webhook protocol:
 import hashlib
 import hmac
 import json
+import logging
 import uuid
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Request, status
 
 from setiq import db
 from setiq.config import settings
+from setiq.ingestion import parser
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks/meta", tags=["webhooks"])
 
@@ -49,6 +53,7 @@ async def verify_webhook(
 @router.post("", status_code=status.HTTP_200_OK)
 async def receive_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_hub_signature_256: str | None = Header(default=None),
 ) -> dict[str, str]:
     """Meta POST event. Verify signature, persist raw to webhook_events,
@@ -79,4 +84,5 @@ async def receive_webhook(
             payload.get("object"),
             payload,
         )
+    background_tasks.add_task(parser.process_event, event_id)
     return {"status": "received", "event_id": str(event_id)}

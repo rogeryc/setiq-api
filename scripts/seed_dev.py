@@ -30,14 +30,18 @@ async def main() -> None:
         async with conn.transaction():
             tenant_id = await conn.fetchval(
                 """
-                INSERT INTO tenants (slug, name, status, modules)
+                INSERT INTO tenants (slug, name, status, modules, settings)
                 VALUES (
                     'thalma',
                     'Thalma',
                     'active',
-                    '{"setiq": {"tier": "pro"}, "kaizen": {"enabled": true}}'::jsonb
+                    '{"setiq": {"tier": "pro"}, "kaizen": {"enabled": true}}'::jsonb,
+                    '{"meta": {"page_ids": [], "instagram_business_ids": ["17841400000000000"]}}'::jsonb
                 )
-                ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+                ON CONFLICT (slug) DO UPDATE SET
+                    name     = EXCLUDED.name,
+                    modules  = EXCLUDED.modules,
+                    settings = EXCLUDED.settings
                 RETURNING id
                 """
             )

@@ -7,6 +7,7 @@ import asyncpg
 from setiq.config import settings
 
 _pool: asyncpg.Pool | None = None
+_admin_pool: asyncpg.Pool | None = None
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
@@ -27,20 +28,34 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
 
 
 async def connect() -> None:
-    global _pool
+    global _pool, _admin_pool
     _pool = await asyncpg.create_pool(
         settings.app_database_url,
         init=_init_connection,
         min_size=2,
         max_size=10,
     )
+    # Smaller pool used by background workers that need to read/write across
+    # tenants (e.g. webhook parser). Connects as the superuser, so RLS is
+    # bypassed. Worker code is still expected to set tenant_id explicitly on
+    # inserts; RLS bypass is just to read webhook_events rows that have NULL
+    # tenant_id and to write across tenants without per-tenant context flips.
+    _admin_pool = await asyncpg.create_pool(
+        settings.database_url,
+        init=_init_connection,
+        min_size=1,
+        max_size=4,
+    )
 
 
 async def disconnect() -> None:
-    global _pool
+    global _pool, _admin_pool
     if _pool is not None:
         await _pool.close()
         _pool = None
+    if _admin_pool is not None:
+        await _admin_pool.close()
+        _admin_pool = None
 
 
 def pool() -> asyncpg.Pool:
@@ -49,9 +64,21 @@ def pool() -> asyncpg.Pool:
     return _pool
 
 
+def admin_pool() -> asyncpg.Pool:
+    if _admin_pool is None:
+        raise RuntimeError("Admin pool not initialized")
+    return _admin_pool
+
+
 @asynccontextmanager
 async def acquire() -> AsyncIterator[asyncpg.Connection]:
     async with pool().acquire() as conn:
+        yield conn
+
+
+@asynccontextmanager
+async def admin_acquire() -> AsyncIterator[asyncpg.Connection]:
+    async with admin_pool().acquire() as conn:
         yield conn
 
 
