@@ -1,3 +1,4 @@
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,10 +9,28 @@ from setiq.config import settings
 _pool: asyncpg.Pool | None = None
 
 
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    """Register JSON codecs so jsonb columns round-trip as Python dicts/lists
+    without manual json.dumps / json.loads at call sites."""
+    await conn.set_type_codec(
+        "jsonb",
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
+    await conn.set_type_codec(
+        "json",
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
+
+
 async def connect() -> None:
     global _pool
     _pool = await asyncpg.create_pool(
         settings.app_database_url,
+        init=_init_connection,
         min_size=2,
         max_size=10,
     )
