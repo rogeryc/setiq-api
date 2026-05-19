@@ -1,4 +1,4 @@
-\restrict BzaAx9qPImvoXLqBTBZoI0AbSy4WcA59SXvOQic54bEavzRZg9hsvNG6dDIkRn8
+\restrict gNHDCe6HbLYkDNgUBJN8sXIFgvTtK3ephclsBCgENpmxIxgEB3DoIBy0wZzeIg1
 
 -- Dumped from database version 14.20 (Homebrew)
 -- Dumped by pg_dump version 14.20 (Homebrew)
@@ -76,7 +76,7 @@ CREATE TABLE public.channel_identities (
     raw_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT channel_identities_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram'::text, 'facebook'::text, 'email'::text, 'youtube'::text, 'x'::text, 'reddit'::text, 'web'::text])))
+    CONSTRAINT channel_identities_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram'::text, 'facebook'::text, 'email'::text, 'tiktok'::text, 'web'::text])))
 );
 
 
@@ -151,8 +151,53 @@ CREATE TABLE public.conversations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     closed_at timestamp with time zone,
-    CONSTRAINT conversations_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram_dm'::text, 'instagram_comment'::text, 'facebook_dm'::text, 'facebook_comment'::text, 'email'::text, 'youtube_comment'::text, 'x_mention'::text, 'reddit_mention'::text, 'tiktok_comment'::text, 'web'::text]))),
+    CONSTRAINT conversations_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram_dm'::text, 'instagram_comment'::text, 'facebook_dm'::text, 'facebook_comment'::text, 'email'::text, 'tiktok_comment'::text, 'web'::text]))),
     CONSTRAINT conversations_status_check CHECK ((status = ANY (ARRAY['open'::text, 'pending_agent'::text, 'waiting_customer'::text, 'resolved'::text, 'closed'::text])))
+);
+
+
+--
+-- Name: mention_classifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mention_classifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    mention_id uuid NOT NULL,
+    kind text NOT NULL,
+    label text NOT NULL,
+    confidence numeric(4,3),
+    model_name text NOT NULL,
+    model_version text,
+    payload jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mention_classifications_kind_check CHECK ((kind = ANY (ARRAY['intent'::text, 'sentiment'::text, 'priority'::text, 'opportunity'::text, 'language'::text])))
+);
+
+
+--
+-- Name: mentions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    tracked_subject_id uuid,
+    platform text NOT NULL,
+    kind text NOT NULL,
+    author_handle text,
+    author_display_name text,
+    author_url text,
+    content_text text,
+    content_url text NOT NULL,
+    content_published_at timestamp with time zone NOT NULL,
+    metrics jsonb DEFAULT '{}'::jsonb NOT NULL,
+    external_id text,
+    raw_payload jsonb,
+    ingested_at timestamp with time zone DEFAULT now() NOT NULL,
+    apify_run_id text,
+    CONSTRAINT mentions_kind_check CHECK ((kind = ANY (ARRAY['post'::text, 'comment'::text, 'mention'::text]))),
+    CONSTRAINT mentions_platform_check CHECK ((platform = ANY (ARRAY['instagram'::text, 'facebook'::text, 'tiktok'::text, 'web'::text, 'news'::text])))
 );
 
 
@@ -259,6 +304,26 @@ CREATE TABLE public.tenants (
 
 
 --
+-- Name: tracked_subjects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tracked_subjects (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    kind text NOT NULL,
+    label text NOT NULL,
+    handles jsonb DEFAULT '{}'::jsonb NOT NULL,
+    keywords text[] DEFAULT '{}'::text[] NOT NULL,
+    hashtags text[] DEFAULT '{}'::text[] NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT tracked_subjects_kind_check CHECK ((kind = ANY (ARRAY['competitor'::text, 'brand'::text, 'keyword'::text, 'hashtag'::text])))
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -289,7 +354,7 @@ CREATE TABLE public.webhook_events (
     processed_at timestamp with time zone,
     status text DEFAULT 'pending'::text NOT NULL,
     error text,
-    CONSTRAINT webhook_events_source_check CHECK ((source = ANY (ARRAY['whatsapp'::text, 'meta'::text, 'email'::text, 'x'::text, 'reddit'::text, 'youtube'::text, 'apify'::text, 'test'::text]))),
+    CONSTRAINT webhook_events_source_check CHECK ((source = ANY (ARRAY['whatsapp'::text, 'meta'::text, 'email'::text, 'apify'::text, 'test'::text]))),
     CONSTRAINT webhook_events_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processed'::text, 'failed'::text, 'skipped'::text])))
 );
 
@@ -340,6 +405,22 @@ ALTER TABLE ONLY public.conversation_notes
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mention_classifications mention_classifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mention_classifications
+    ADD CONSTRAINT mention_classifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentions mentions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentions
+    ADD CONSTRAINT mentions_pkey PRIMARY KEY (id);
 
 
 --
@@ -396,6 +477,14 @@ ALTER TABLE ONLY public.tenants
 
 ALTER TABLE ONLY public.tenants
     ADD CONSTRAINT tenants_slug_key UNIQUE (slug);
+
+
+--
+-- Name: tracked_subjects tracked_subjects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tracked_subjects
+    ADD CONSTRAINT tracked_subjects_pkey PRIMARY KEY (id);
 
 
 --
@@ -500,6 +589,34 @@ CREATE INDEX idx_conversations_tenant_status_last ON public.conversations USING 
 
 
 --
+-- Name: idx_mention_classifications_tenant_kind_label; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mention_classifications_tenant_kind_label ON public.mention_classifications USING btree (tenant_id, kind, label);
+
+
+--
+-- Name: idx_mention_classifications_tenant_mention_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mention_classifications_tenant_mention_kind ON public.mention_classifications USING btree (tenant_id, mention_id, kind);
+
+
+--
+-- Name: idx_mentions_tenant_platform_published; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentions_tenant_platform_published ON public.mentions USING btree (tenant_id, platform, content_published_at DESC);
+
+
+--
+-- Name: idx_mentions_tenant_subject_published; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentions_tenant_subject_published ON public.mentions USING btree (tenant_id, tracked_subject_id, content_published_at DESC);
+
+
+--
 -- Name: idx_message_attachments_tenant_message; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -535,6 +652,20 @@ CREATE INDEX idx_tenant_users_user_id ON public.tenant_users USING btree (user_i
 
 
 --
+-- Name: idx_tracked_subjects_tenant_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tracked_subjects_tenant_enabled ON public.tracked_subjects USING btree (tenant_id, enabled) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_tracked_subjects_tenant_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tracked_subjects_tenant_kind ON public.tracked_subjects USING btree (tenant_id, kind) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: idx_webhook_events_source_external; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -553,6 +684,13 @@ CREATE INDEX idx_webhook_events_status_received ON public.webhook_events USING b
 --
 
 CREATE UNIQUE INDEX uq_conversations_external_thread ON public.conversations USING btree (tenant_id, channel, external_thread_id) WHERE (external_thread_id IS NOT NULL);
+
+
+--
+-- Name: uq_mentions_external; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_mentions_external ON public.mentions USING btree (tenant_id, platform, external_id) WHERE (external_id IS NOT NULL);
 
 
 --
@@ -595,6 +733,13 @@ CREATE TRIGGER conversations_set_updated_at BEFORE UPDATE ON public.conversation
 --
 
 CREATE TRIGGER tenants_set_updated_at BEFORE UPDATE ON public.tenants FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: tracked_subjects tracked_subjects_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER tracked_subjects_set_updated_at BEFORE UPDATE ON public.tracked_subjects FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
@@ -717,6 +862,38 @@ ALTER TABLE ONLY public.conversations
 
 
 --
+-- Name: mention_classifications mention_classifications_mention_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mention_classifications
+    ADD CONSTRAINT mention_classifications_mention_id_fkey FOREIGN KEY (mention_id) REFERENCES public.mentions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mention_classifications mention_classifications_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mention_classifications
+    ADD CONSTRAINT mention_classifications_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentions mentions_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentions
+    ADD CONSTRAINT mentions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentions mentions_tracked_subject_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentions
+    ADD CONSTRAINT mentions_tracked_subject_id_fkey FOREIGN KEY (tracked_subject_id) REFERENCES public.tracked_subjects(id) ON DELETE SET NULL;
+
+
+--
 -- Name: message_attachments message_attachments_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -786,6 +963,14 @@ ALTER TABLE ONLY public.tenant_users
 
 ALTER TABLE ONLY public.tenant_users
     ADD CONSTRAINT tenant_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tracked_subjects tracked_subjects_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tracked_subjects
+    ADD CONSTRAINT tracked_subjects_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -862,6 +1047,32 @@ CREATE POLICY conversations_tenant_isolation ON public.conversations USING ((ten
 
 
 --
+-- Name: mention_classifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.mention_classifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: mention_classifications mention_classifications_tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY mention_classifications_tenant_isolation ON public.mention_classifications USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
+
+
+--
+-- Name: mentions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.mentions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: mentions mentions_tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY mentions_tenant_isolation ON public.mentions USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
+
+
+--
 -- Name: message_attachments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -901,6 +1112,19 @@ CREATE POLICY messages_tenant_isolation ON public.messages USING ((tenant_id = p
 
 
 --
+-- Name: tracked_subjects; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tracked_subjects ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: tracked_subjects tracked_subjects_tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tracked_subjects_tenant_isolation ON public.tracked_subjects USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
+
+
+--
 -- Name: webhook_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -917,7 +1141,7 @@ CREATE POLICY webhook_events_tenant_isolation ON public.webhook_events USING (((
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BzaAx9qPImvoXLqBTBZoI0AbSy4WcA59SXvOQic54bEavzRZg9hsvNG6dDIkRn8
+\unrestrict gNHDCe6HbLYkDNgUBJN8sXIFgvTtK3ephclsBCgENpmxIxgEB3DoIBy0wZzeIg1
 
 
 --
@@ -928,4 +1152,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260518200000'),
     ('20260518210000'),
     ('20260518220000'),
-    ('20260518230000');
+    ('20260518230000'),
+    ('20260518240000'),
+    ('20260518250000');

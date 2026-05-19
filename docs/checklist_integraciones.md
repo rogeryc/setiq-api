@@ -247,93 +247,6 @@ Trade-off: IMAP es más simple pero frágil (tokens, MFA). Recomendado Postmark.
 
 ---
 
-## X (Twitter)
-
-### Camino oficial — X Developer API
-
-**Lo que hacemos nosotros:**
-- Apply X Developer Account ([developer.x.com](https://developer.x.com)) — 1-2 días.
-- Suscribir **Basic tier** (US$100/mes) — la free tier no permite search/mentions.
-- Permisos `tweet.read`, `users.read`.
-- Poller que cada N min consulta search por menciones del cliente.
-
-**Calendario:** 2-3 días. **Costo:** US$100/mes flat.
-
-### Apify como alternativa
-
-✅ **Viable.** Varios actors (`apidojo/tweet-scraper`, `apify/twitter-scraper`) leen búsquedas, perfiles, hilos. Sin pagar a X.
-
-**Setup:** 1 día. **Costo:** ~US$0.4-2 / 1000 tweets.
-
-### Comparación
-
-| | Oficial | Apify |
-|---|---|---|
-| Costo a bajo volumen | US$100/mes fijo | <US$10/mes |
-| Costo a alto volumen | US$100/mes fijo | Escala con uso |
-| Setup | 2-3 días | 1 día |
-| Permite postear | ✅ (con permisos extra) | ❌ |
-| Real-time | Sí (filtered stream tier alto) | Polling |
-| Estable | Sí | Variable (X cambia anti-bot frecuente) |
-| Legal | Limpio | Zona gris |
-
-**Veredicto:** Apify gana **a bajo volumen** (<5000 búsquedas/mes). Oficial gana si necesitamos postear o vamos a >10k resultados/mes.
-
----
-
-## YouTube
-
-### Camino oficial — YouTube Data API v3
-
-**Lo que necesita el cliente:** canal YouTube + OAuth si queremos leer datos privados (no necesario para comentarios públicos).
-
-**Lo que hacemos nosotros:**
-- Google Cloud Project + habilitar YouTube Data API v3.
-- OAuth 2.0 client credentials.
-- Cuotas: 10k units/día (gratis, ampliable).
-
-**Calendario:** 1-3 días. **Costo:** gratis dentro de cuota.
-
-### Apify como alternativa
-
-✅ Viable (`streamers/youtube-scraper`, etc.). **Setup:** 1 día. **Costo:** pago por resultado.
-
-### Comparación
-
-| | Oficial | Apify |
-|---|---|---|
-| Costo | Gratis | Pago por uso |
-| Estabilidad | Alta | Media |
-| Cuota | 10k units/día | Ilimitada |
-| Setup | 1-3 días | 1 día |
-| Legal | Limpio | Zona gris |
-
-**Veredicto:** **Oficial.** Es gratis, robusta, rápida de configurar. Apify no aporta nada acá.
-
----
-
-## Reddit
-
-### Camino oficial
-
-**Lo que hacemos nosotros:**
-- Cuenta Reddit + crear app ([reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)).
-- OAuth (`client_id` + `client_secret`).
-- User-Agent string descriptivo (Reddit lo exige).
-- Poller que busca menciones de la marca en subreddits relevantes.
-
-**Calendario:** 1 día. **Costo:** gratis dentro de 60 req/min.
-
-### Apify como alternativa
-
-✅ Viable. **Pero la API oficial es gratis y trivial.**
-
-### Veredicto
-
-**Oficial.** Apify es overkill acá.
-
----
-
 ## 0800 / Teléfono
 
 **No aplica Apify** (no es red social ni contenido scrapeable).
@@ -376,9 +289,6 @@ Trade-off: IMAP es más simple pero frágil (tokens, MFA). Recomendado Postmark.
 | **Instagram comments** | 2-4 sem; gratis | 1-2 días; ~US$2-5/1000 | Oficial (Apify si cliente no conecta) |
 | **Messenger DMs** | 2-4 sem; gratis | ❌ Inviable | Oficial |
 | **FB Page comments** | 2-4 sem; gratis | 1-2 días; ~US$2-5/1000 | Oficial (Apify si cliente no conecta) |
-| **X** | 2-3 días; US$100/mes | 1 día; pago x uso | **Apify a bajo volumen**, oficial si necesita postear |
-| **YouTube** | 1-3 días; gratis | 1 día; pago x uso | Oficial |
-| **Reddit** | 1 día; gratis | 1 día; pago x uso | Oficial |
 | **TikTok** | ❌ Inviable | 1-2 días; pago x uso | Apify |
 | **Email** | 1-2 días; ~US$15/mes | N/A | Postmark |
 | **0800** | 1-2 días (nuevo) / 2-6 sem (port) | N/A | Twilio |
@@ -390,18 +300,15 @@ Trade-off: IMAP es más simple pero frágil (tokens, MFA). Recomendado Postmark.
 | # | Canal | Vía | Calendario | Costo | Bloqueo crítico |
 |---|---|---|---|---|---|
 | 1 | **Email** (Postmark) | Postmark | 1-2 días | US$15/mes | DNS del cliente |
-| 2 | **Reddit** | Oficial | 1 día | Gratis | Ninguno |
-| 3 | **YouTube** | Oficial | 1-3 días | Gratis | OAuth del cliente |
-| 4 | **X** | Apify (o oficial si alto vol.) | 1 día | Pago x uso | Ninguno |
-| 5 | **TikTok** | Apify | 1-2 días | Pago x uso | Ninguno |
-| 6 | **IG / FB comments — fallback rápido** | Apify | 1-2 días | Pago x uso | Ninguno |
-| 7 | **Meta Business base del cliente** | Oficial | 1-2 semanas | — | Business Verification |
-| 8 | **IG DMs + Messenger DMs + comments oficiales** | Oficial | 2-4 semanas | Gratis | App Review |
-| 9 | **WhatsApp Business** | Oficial | 2-4 semanas | ~US$0.005-0.08/conv | App Review + número + templates |
-| 10 | **0800 nuevo** | Twilio | 1-2 días | ~US$1/mes + uso | Ninguno |
-| 10b | **0800 port-in** | Twilio | 2-6 semanas | Idem | Trámite con carrier |
+| 2 | **TikTok** | Apify | 1-2 días | Pago x uso | Ninguno |
+| 3 | **IG / FB comments — fallback rápido** | Apify | 1-2 días | Pago x uso | Ninguno |
+| 4 | **Meta Business base del cliente** | Oficial | 1-2 semanas | — | Business Verification |
+| 5 | **IG DMs + Messenger DMs + comments oficiales** | Oficial | 2-4 semanas | Gratis | App Review |
+| 6 | **WhatsApp Business** | Oficial | 2-4 semanas | ~US$0.005-0.08/conv | App Review + número + templates |
+| 7 | **0800 nuevo** | Twilio | 1-2 días | ~US$1/mes + uso | Ninguno |
+| 7b | **0800 port-in** | Twilio | 2-6 semanas | Idem | Trámite con carrier |
 
 **Estrategia recomendada:**
-1. **Días 1-7:** levantar (1)-(6) — todo lo que no requiere aprobaciones largas — para tener un MVP demostrable con varios canales funcionando.
-2. **En paralelo desde día 1:** iniciar (7) y (9) para que las aprobaciones largas estén listas cuando el MVP base esté firme.
+1. **Días 1-7:** levantar (1)-(3) — todo lo que no requiere aprobaciones largas — para tener un MVP demostrable con varios canales funcionando.
+2. **En paralelo desde día 1:** iniciar (4) y (6) para que las aprobaciones largas estén listas cuando el MVP base esté firme.
 3. **Apify como fallback** para clientes que no pueden / no quieren conectar sus cuentas Meta — permite ofrecer lectura inmediata mientras se hace el trámite oficial.
