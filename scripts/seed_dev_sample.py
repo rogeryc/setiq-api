@@ -829,6 +829,141 @@ INSIGHTS_SEED: list[dict[str, Any]] = [
         "footnote": "SLA en 4 semanas",
         "actions": [{"label": "Ver calendario"}],
     },
+    # --- Más insights para el feed de Recomendaciones ---
+    {
+        "kind": "featured",
+        "rank": 1,
+        "title": "El Reel del jueves disparó",
+        "title_em": "230 nuevas seguidoras",
+        "title_tail": "en 36h.",
+        "body": (
+            "El video sobre alquileres en Cochabamba captó audiencia 25-34 que no "
+            "estaba en tu base habitual. Sugerimos serializar el formato — el "
+            "engagement rate (12,4%) está 3,2× sobre tu promedio."
+        ),
+        "confidence": "89%",
+        "age": "hace 6h",
+        "impact": "Impacto: expansión a un nuevo segmento etario",
+        "actions": [
+            {"label": "Crear segmento 25-34", "variant": "acc"},
+            {"label": "Ver Reel"},
+        ],
+    },
+    {
+        "kind": "featured",
+        "rank": 2,
+        "title": "La Trinchera publicó una pieza",
+        "title_em": "que solapa con tu serie",
+        "title_tail": "de alquileres.",
+        "body": (
+            "El newsletter La Trinchera sacó hoy una nota sobre el mismo tema. "
+            "Su ángulo es más político; el tuyo tiene más data de campo. Vale la "
+            "pena marcar la diferencia antes que tu audiencia los mezcle."
+        ),
+        "confidence": "85%",
+        "age": "hace 2h",
+        "impact": "Impacto: diferenciación editorial",
+        "actions": [
+            {"label": "Ver nota de La Trinchera"},
+            {"label": "Crear respuesta editorial", "variant": "ghost"},
+        ],
+    },
+    {
+        "kind": "memo",
+        "rank": 4,
+        "severity": "low",
+        "tag": "Memo 05 · Audiencia",
+        "confidence": "Confianza 78%",
+        "title": "Pico de actividad",
+        "title_em": "martes 21h",
+        "body": (
+            "Tu audiencia se activa en IG entre 20:30 y 22:00 los martes "
+            "consistentemente. Hoy publicás cuando estás disponible — alinear el "
+            "calendario con ese pico puede subir el alcance ~18%."
+        ),
+        "footnote": "+18% alcance estimado",
+        "actions": [{"label": "Ajustar calendario"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 5,
+        "severity": "med",
+        "tag": "Memo 06 · Oportunidad",
+        "confidence": "Confianza 83%",
+        "title": "Darío Mendieta te mencionó",
+        "title_em": "4 veces este mes",
+        "body": (
+            "Periodista de Sucre con 12k seguidoras, sentimiento sostenido 0,92 "
+            "hacia tu trabajo. Buen candidato para una colab o entrevista "
+            "cruzada."
+        ),
+        "footnote": "Colab potencial",
+        "actions": [{"label": "Ver perfil"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 6,
+        "severity": "high",
+        "tag": "Memo 07 · Servicio",
+        "confidence": "Confianza 91%",
+        "title": "3 suscriptores reportan",
+        "title_em": "newsletter no llega",
+        "body": (
+            "Tres correos distintos (todos en dominios Yahoo) marcaron como spam "
+            "los últimos 2 envíos. Conviene revisar SPF/DKIM antes del próximo "
+            "ciclo del miércoles."
+        ),
+        "footnote": "Bloqueo deliverability",
+        "actions": [{"label": "Revisar configuración email", "variant": "acc"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 7,
+        "severity": "low",
+        "tag": "Memo 08 · Audiencia",
+        "confidence": "Confianza 71%",
+        "title": "Sentimiento en Santa Cruz",
+        "title_em": "subió 8 pp",
+        "body": (
+            "Las últimas 3 piezas con foco en el oriente movieron el sentimiento "
+            "de Santa Cruz de 0,58 a 0,66. Cobertura del eje troncal está "
+            "rindiendo."
+        ),
+        "footnote": "Métrica regional",
+        "actions": [{"label": "Ver detalle por ciudad"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 8,
+        "severity": "med",
+        "tag": "Memo 09 · Operación",
+        "confidence": "Confianza 80%",
+        "title": "12 menciones sin responder",
+        "title_em": "esperan más de 48h",
+        "body": (
+            "Hay 12 conversaciones con sentimiento neutral o positivo donde la "
+            "primera respuesta supera el SLA. Bajo riesgo individual pero "
+            "patrón a corregir."
+        ),
+        "footnote": "Backlog inbox",
+        "actions": [{"label": "Ir al inbox", "route": "/inbox"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 9,
+        "severity": "low",
+        "tag": "Memo 10 · Audiencia",
+        "confidence": "Confianza 68%",
+        "title": "Cluster emergente:",
+        "title_em": "estudiantes de periodismo",
+        "body": (
+            "Detectamos ~30 cuentas que se identifican como estudiantes de "
+            "periodismo siguiendo a Thalma + 2-3 competidores. Audiencia útil "
+            "para un newsletter educativo paralelo."
+        ),
+        "footnote": "Idea: serie 'cómo cubrir X'",
+        "actions": [{"label": "Crear segmento"}],
+    },
 ]
 
 
