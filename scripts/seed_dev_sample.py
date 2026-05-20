@@ -34,6 +34,7 @@ import asyncpg
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from setiq.auth.passwords import hash_password  # noqa: E402
 from setiq.config import settings  # noqa: E402
 
 TENANT_SLUG = "thalma"
@@ -476,6 +477,7 @@ async def main() -> None:
         await _insert_conversations_and_messages(conn, tenant_id, contact_index, identity_index)
         await _insert_mentions(conn, tenant_id)
         await _insert_insights(conn, tenant_id)
+        await _insert_team_members(conn, tenant_id)
         await _print_summary(conn, tenant_id)
     finally:
         await conn.close()
@@ -993,6 +995,43 @@ async def _insert_insights(conn: asyncpg.Connection, tenant_id: UUID) -> None:
             s.get("footnote"),
             json.dumps(s.get("actions", [])),
             s.get("rank", 0),
+        )
+
+
+# (email, name, role, password, days_since_last_login)
+TEAM_SEED: list[tuple[str, str, str, str, int]] = [
+    ("saul@example.com", "Saúl Vargas",  "admin", "changeme123", 1),
+    ("sole@example.com", "Sole Quiroga", "agent", "changeme123", 0),
+    ("eli@example.com",  "Eli Rojas",    "agent", "changeme123", 4),
+    ("ana@example.com",  "Ana Aramayo",  "viewer", "changeme123", 12),
+]
+
+
+async def _insert_team_members(conn: asyncpg.Connection, tenant_id: UUID) -> None:
+    """Add a few extra users (besides Thalma) so the Equipo page has volume.
+
+    Idempotent: re-running upserts users by email and re-links them to the
+    tenant. We DO NOT touch the existing thalma user/role.
+    """
+    for (email, name, role, password, days_ago) in TEAM_SEED:
+        user_id = await conn.fetchval(
+            """
+            INSERT INTO users (email, password_hash, name, last_login_at)
+            VALUES ($1, $2, $3, NOW() - ($4 || ' days')::interval)
+            ON CONFLICT (email) DO UPDATE SET
+                name = EXCLUDED.name,
+                last_login_at = EXCLUDED.last_login_at
+            RETURNING id
+            """,
+            email, hash_password(password), name, str(days_ago),
+        )
+        await conn.execute(
+            """
+            INSERT INTO tenant_users (tenant_id, user_id, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = EXCLUDED.role
+            """,
+            tenant_id, user_id, role,
         )
 
 
