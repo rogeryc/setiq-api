@@ -15,7 +15,8 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev_only_change_me"
     jwt_algorithm: str = "HS256"
-    jwt_expires_minutes: int = 60
+    jwt_expires_minutes: int = 60 * 8           # standard session = working day
+    jwt_remember_me_minutes: int = 60 * 24 * 30  # "Recordarme" = 30 days
 
     # Meta webhook
     meta_app_secret: str = ""
