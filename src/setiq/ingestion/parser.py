@@ -93,12 +93,44 @@ async def _process_instagram(conn: asyncpg.Connection, payload: dict[str, Any]) 
         for change in entry.get("changes", []) or []:
             if change.get("field") == "comments":
                 await _store_ig_comment(conn, tenant_id, change.get("value") or {})
-        # TODO: handle entry["messaging"] for IG DMs
+        for event in entry.get("messaging", []) or []:
+            await _store_dm(conn, tenant_id, "instagram", "instagram_dm", ig_id, event)
 
 
 async def _process_facebook(conn: asyncpg.Connection, payload: dict[str, Any]) -> None:
-    # TODO: FB feed (comments) + messenger
     pass
+
+
+async def _store_dm(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    identity_channel: str,
+    conversation_channel: str,
+    self_id: str,
+    event: dict[str, Any],
+) -> None:
+    message = event.get("message")
+    if not message or message.get("is_echo"):
+        return
+    sender = event.get("sender") or {}
+    sender_id = sender.get("id")
+    if not sender_id or sender_id == self_id:
+        return
+
+    text = message.get("text") or ""
+    external_id = message.get("mid")
+
+    identity_id, contact_id = await _upsert_identity(
+        conn, tenant_id, identity_channel, sender_id, None,
+    )
+    conv_id = await _upsert_conversation(
+        conn, tenant_id, contact_id, identity_id, conversation_channel, None,
+    )
+    msg_id = await _insert_message(
+        conn, tenant_id, conv_id, text, external_id, event,
+    )
+    if msg_id is not None:
+        await queue.enqueue_classify_message(msg_id)
 
 
 async def _upsert_identity(
