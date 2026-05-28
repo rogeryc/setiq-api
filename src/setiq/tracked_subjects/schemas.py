@@ -38,3 +38,35 @@ class TrackedSubjectResponse(BaseModel):
     # from Apify / IG Business Discovery / etc.).
     mention_count: int = 0
     last_mention_at: datetime | None = None
+
+
+class MentionPreview(BaseModel):
+    id: UUID
+    platform: str
+    author_display_name: str | None = None
+    author_handle: str | None = None
+    content_text: str | None = None
+    content_url: str | None = None
+    published_at: datetime | None = None
+    sentiment: str | None = None
+
+
+class SentimentBreakdown(BaseModel):
+    positive: int = 0
+    neutral: int = 0
+    negative: int = 0
+
+
+class OverlapContact(BaseModel):
+    id: UUID
+    display_name: str | None = None
+
+
+class TrackedSubjectDetail(BaseModel):
+    id: UUID
+    kind: SubjectKind
+    label: str
+    mention_count: int
+    sentiment_breakdown: SentimentBreakdown
+    recent_mentions: list[MentionPreview]
+    audience_overlap: list[OverlapContact]
