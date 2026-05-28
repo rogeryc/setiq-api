@@ -5,13 +5,11 @@ pool so RLS is bypassed — webhook_events rows have NULL tenant_id until the
 parser resolves it, and the parser writes across tenant boundaries during
 dispatch. Tenant_id is still explicitly set on every insert.
 
-Currently handles:
+Handles:
 - Instagram comments (`object='instagram'`, `changes[].field='comments'`)
-
-Planned next:
-- Instagram DMs (`messaging[]`)
+- Instagram DMs (`object='instagram'`, `entry[].messaging[]`)
 - Facebook Page comments (`object='page'`, `changes[].field='feed'`)
-- Facebook Messenger DMs
+- Facebook Messenger DMs (`object='page'`, `entry[].messaging[]`)
 """
 import logging
 from typing import Any
@@ -109,6 +107,8 @@ async def _process_facebook(conn: asyncpg.Connection, payload: dict[str, Any]) -
         for change in entry.get("changes", []) or []:
             if change.get("field") == "feed":
                 await _store_fb_comment(conn, tenant_id, page_id, change.get("value") or {})
+        for event in entry.get("messaging", []) or []:
+            await _store_dm(conn, tenant_id, "facebook", "facebook_dm", page_id, event)
 
 
 async def _store_dm(
