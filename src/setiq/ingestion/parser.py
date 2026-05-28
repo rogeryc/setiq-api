@@ -98,7 +98,17 @@ async def _process_instagram(conn: asyncpg.Connection, payload: dict[str, Any]) 
 
 
 async def _process_facebook(conn: asyncpg.Connection, payload: dict[str, Any]) -> None:
-    pass
+    for entry in payload.get("entry", []):
+        page_id = entry.get("id")
+        if not page_id:
+            continue
+        tenant_id = await _find_tenant_by_meta_id(conn, page_id)
+        if tenant_id is None:
+            logger.warning("no tenant for FB page %s; skipping entry", page_id)
+            continue
+        for change in entry.get("changes", []) or []:
+            if change.get("field") == "feed":
+                await _store_fb_comment(conn, tenant_id, page_id, change.get("value") or {})
 
 
 async def _store_dm(
@@ -128,6 +138,34 @@ async def _store_dm(
     )
     msg_id = await _insert_message(
         conn, tenant_id, conv_id, text, external_id, event,
+    )
+    if msg_id is not None:
+        await queue.enqueue_classify_message(msg_id)
+
+
+async def _store_fb_comment(
+    conn: asyncpg.Connection, tenant_id: UUID, page_id: str, value: dict[str, Any]
+) -> None:
+    if value.get("item") != "comment" or value.get("verb") != "add":
+        return
+    sender = value.get("from") or {}
+    sender_id = sender.get("id")
+    display_name = sender.get("name")
+    if not sender_id or sender_id == page_id:
+        return
+
+    post_id = value.get("post_id")
+    text = value.get("message") or ""
+    external_id = value.get("comment_id")
+
+    identity_id, contact_id = await _upsert_identity(
+        conn, tenant_id, "facebook", sender_id, display_name,
+    )
+    conv_id = await _upsert_conversation(
+        conn, tenant_id, contact_id, identity_id, "facebook_comment", post_id,
+    )
+    msg_id = await _insert_message(
+        conn, tenant_id, conv_id, text, external_id, value,
     )
     if msg_id is not None:
         await queue.enqueue_classify_message(msg_id)
