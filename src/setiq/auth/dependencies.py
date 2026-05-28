@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from setiq import db
+from setiq.auth import revocation
 from setiq.auth.jwt import decode_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -18,6 +19,9 @@ class CurrentUser:
     user_id: UUID
     tenant_id: UUID
     role: str
+    jti: str
+    exp: int
+    remember: bool
 
 
 async def get_current_user(
@@ -29,10 +33,18 @@ async def get_current_user(
         payload = decode_token(credentials.credentials)
     except jwt.PyJWTError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"Invalid token: {e}") from e
+
+    jti = payload.get("jti", "")
+    if await revocation.is_revoked(jti):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token revoked")
+
     return CurrentUser(
         user_id=UUID(payload["sub"]),
         tenant_id=UUID(payload["tenant_id"]),
         role=payload["role"],
+        jti=jti,
+        exp=int(payload["exp"]),
+        remember=bool(payload.get("remember", False)),
     )
 
 
