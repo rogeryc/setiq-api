@@ -1,7 +1,21 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+
+
+class ConversationUpdate(BaseModel):
+    status: Literal[
+        "open", "pending_agent", "waiting_customer", "resolved", "closed"
+    ] | None = None
+    assigned_user_id: UUID | None = None
+
+
+class ConversationMutation(BaseModel):
+    id: UUID
+    status: str
+    assigned_user_id: UUID | None = None
 
 
 class ConversationSummary(BaseModel):
