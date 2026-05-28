@@ -4,7 +4,7 @@ Computes aggregations entirely in SQL — RLS scopes every query to the
 caller's tenant automatically via the connection's `app.current_tenant`
 GUC (set by the auth dependency).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
@@ -52,7 +52,7 @@ _PLATFORM_LABELS = {
 async def overview(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> OverviewResponse:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     thirty_days_ago = now - timedelta(days=30)
     sixty_days_ago = now - timedelta(days=60)
     seven_days_ago = now - timedelta(days=7)
@@ -256,7 +256,7 @@ async def competitor_activity(
     limit: int = Query(5, ge=1, le=20),
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> CompetitorActivityResponse:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     current_start = now - timedelta(days=days)
     previous_start = now - timedelta(days=days * 2)
 

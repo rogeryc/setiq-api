@@ -233,9 +233,10 @@ async def _upsert_conversation(
             "UPDATE conversations SET last_message_at = NOW() WHERE id = $1",
             row["id"],
         )
-        return row["id"]
+        existing_id: UUID = row["id"]
+        return existing_id
 
-    return await conn.fetchval(
+    new_id: UUID = await conn.fetchval(
         """
         INSERT INTO conversations (
             tenant_id, contact_id, channel, channel_identity_id,
@@ -245,6 +246,7 @@ async def _upsert_conversation(
         """,
         tenant_id, contact_id, channel, identity_id, external_thread_id,
     )
+    return new_id
 
 
 async def _insert_message(
@@ -258,7 +260,7 @@ async def _insert_message(
     """Insert a message idempotently (unique on external_id). Returns the
     new message id, or None if the message was already ingested."""
     try:
-        return await conn.fetchval(
+        msg_id: UUID | None = await conn.fetchval(
             """
             INSERT INTO messages (
                 tenant_id, conversation_id, direction, sender_type,
@@ -268,6 +270,7 @@ async def _insert_message(
             """,
             tenant_id, conversation_id, content_text, external_id, raw_payload,
         )
+        return msg_id
     except asyncpg.UniqueViolationError:
         return None
 

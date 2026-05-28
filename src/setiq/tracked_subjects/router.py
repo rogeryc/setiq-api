@@ -29,7 +29,7 @@ def _row_to_response(row: asyncpg.Record) -> TrackedSubjectResponse:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         mention_count=int(row["mention_count"] or 0) if "mention_count" in row else 0,
-        last_mention_at=row["last_mention_at"] if "last_mention_at" in row else None,
+        last_mention_at=row.get("last_mention_at"),
     )
 
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -17,7 +17,7 @@ def issue_token(
     remember: bool = False,
 ) -> str:
     ttl = expires_in_minutes if expires_in_minutes is not None else settings.jwt_expires_minutes
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),

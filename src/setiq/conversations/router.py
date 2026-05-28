@@ -19,8 +19,8 @@ from setiq.conversations.schemas import (
     ConversationDetail,
     ConversationGroup,
     ConversationMutation,
-    ConversationSummary,
     ConversationsResponse,
+    ConversationSummary,
     ConversationUpdate,
     MessageDetail,
 )

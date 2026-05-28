@@ -25,7 +25,7 @@ import asyncio
 import json
 import random
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -42,7 +42,7 @@ TENANT_SLUG = "thalma"
 # Deterministic randomness so re-runs produce the same data.
 random.seed(42)
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------

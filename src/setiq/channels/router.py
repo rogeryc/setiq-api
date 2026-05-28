@@ -5,7 +5,7 @@ from the same JSONB blob. Status / last_sync_at are hardcoded placeholders
 until we add a real `connected_channels` table tracking OAuth tokens and
 sync history.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -14,8 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from setiq.auth.dependencies import CurrentUser, get_tenant_db, require_admin
 from setiq.channels.schemas import (
     ChannelModulesPatch,
-    ChannelStatus,
     ChannelsResponse,
+    ChannelStatus,
     ModuleToggles,
 )
 
@@ -90,7 +90,7 @@ async def _build_response(conn: asyncpg.Connection) -> ChannelsResponse:
     kaizen_on = bool((modules.get("kaizen") or {}).get("enabled"))
     setiq_on = bool((modules.get("setiq") or {}).get("tier"))
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     channels: list[ChannelStatus] = []
     for key, label in SUPPORTED:
