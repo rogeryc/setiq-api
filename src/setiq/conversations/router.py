@@ -315,6 +315,16 @@ async def update_conversation(
             "THEN NOW() ELSE NULL END"
         )
     if body.assigned_user_id is not None:
+        is_member = await conn.fetchval(
+            "SELECT 1 FROM tenant_users "
+            "WHERE tenant_id = current_tenant_id() AND user_id = $1",
+            body.assigned_user_id,
+        )
+        if not is_member:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Assignee is not a member of this tenant",
+            )
         args.append(body.assigned_user_id)
         sets.append(f"assigned_user_id = ${len(args)}")
 
