@@ -55,3 +55,11 @@ async def get_tenant_db(
     Any query through this connection is automatically tenant-scoped via RLS."""
     async with db.acquire_for_tenant(str(current_user.tenant_id)) as conn:
         yield conn
+
+
+async def require_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    if current_user.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin role required")
+    return current_user

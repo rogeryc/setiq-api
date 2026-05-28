@@ -13,6 +13,7 @@ from setiq.dashboard import router as dashboard_router
 from setiq.ingestion import meta_router
 from setiq.insights import router as insights_router
 from setiq.team import router as team_router
+from setiq.tenants import router as tenants_router
 from setiq.tracked_subjects import router as tracked_subjects_router
 
 
@@ -48,6 +49,7 @@ app.include_router(conversations_router)
 app.include_router(channels_router)
 app.include_router(insights_router)
 app.include_router(team_router)
+app.include_router(tenants_router)
 app.include_router(meta_router)
 
 
