@@ -9,10 +9,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from setiq.auth.dependencies import get_tenant_db
+from setiq.auth.dependencies import CurrentUser, get_tenant_db, require_admin
 from setiq.channels.schemas import (
+    ChannelModulesPatch,
     ChannelStatus,
     ChannelsResponse,
     ModuleToggles,
@@ -37,6 +38,45 @@ SUPPORTED = [
 async def list_channels(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> ChannelsResponse:
+    return await _build_response(conn)
+
+
+@router.patch("/{key}", response_model=ChannelsResponse, response_model_exclude_none=True)
+async def patch_channel(
+    key: str,
+    patch: ChannelModulesPatch,
+    _admin: CurrentUser = Depends(require_admin),
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> ChannelsResponse:
+    if key not in {k for k, _ in SUPPORTED}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown channel")
+
+    row = await conn.fetchrow("SELECT settings FROM tenants WHERE id = current_tenant_id()")
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tenant not found")
+    settings: dict[str, Any] = row["settings"] or {}
+
+    channel_modules = dict(settings.get("channel_modules") or {})
+    current = dict(channel_modules.get(key) or {})
+    if patch.setiq is not None:
+        current["setiq"] = patch.setiq
+    if patch.kaizen is not None:
+        current["kaizen"] = patch.kaizen
+    channel_modules[key] = current
+
+    await conn.execute(
+        """
+        UPDATE tenants
+        SET settings = jsonb_set(settings, '{channel_modules}', $1::jsonb, true),
+            updated_at = NOW()
+        WHERE id = current_tenant_id()
+        """,
+        channel_modules,
+    )
+    return await _build_response(conn)
+
+
+async def _build_response(conn: asyncpg.Connection) -> ChannelsResponse:
     row = await conn.fetchrow(
         "SELECT settings, modules FROM tenants WHERE id = current_tenant_id()"
     )
@@ -45,6 +85,7 @@ async def list_channels(
 
     meta = settings.get("meta", {}) or {}
     labels = settings.get("channel_labels", {}) or {}
+    overrides = settings.get("channel_modules", {}) or {}
 
     kaizen_on = bool((modules.get("kaizen") or {}).get("enabled"))
     setiq_on = bool((modules.get("setiq") or {}).get("tier"))
@@ -56,6 +97,7 @@ async def list_channels(
         connected, account_label, warning, status = _platform_status(
             key, meta, settings, labels,
         )
+        ov = overrides.get(key) or {}
         channels.append(ChannelStatus(
             key=key,
             label=label,
@@ -65,8 +107,8 @@ async def list_channels(
             last_sync_at=(now - timedelta(minutes=_recent_minutes(key)))
                          if connected else None,
             modules=ModuleToggles(
-                setiq=setiq_on and connected,
-                kaizen=kaizen_on and connected,
+                setiq=setiq_on and connected and ov.get("setiq", True),
+                kaizen=kaizen_on and connected and ov.get("kaizen", True),
             ),
             warning=warning,
         ))
