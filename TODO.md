@@ -3,7 +3,7 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-05-28 (Saul: parser Meta completo + repriorización; trabajo en branch `saul`)
+**Última actualización:** 2026-06-03 (PR #1 de Saul mergeada en ambos repos + `/ajustes` editable)
 
 ---
 
@@ -21,26 +21,26 @@ Actualizar al final de cada sesión.
 ### Páginas que faltan construir
 - [x] `/recomendaciones` — vista dedicada al feed completo de insights con filtro Todas/Resumen/Destacadas/Memos. Backend: `GET /insights?kind=&limit=&offset=`. (hecho 2026-05-20)
 - [x] `/equipo` — admin de `tenant_users` (listar miembros + filtro por rol). Backend: `GET /team`. (hecho 2026-05-20)
-- [~] `/ajustes` — UI estática con todas las secciones que vamos a editar (Plan/Módulos, Identidad, Contexto IA *diferido*, Política de IA, Etiquetas de canales, Facturación *diferido*, Webhooks *diferido*, Privacidad *diferido*). Falta backend `PATCH /tenants/me/settings` + `/modules` para hacerlo editable. (UI hecha 2026-05-20)
+- [x] `/ajustes` — editable: Kaizen module toggle, 4 toggles de Política de IA, 4 inputs de Etiquetas de canales (todo persistido vía `PATCH /tenants/me/settings|modules`). Identidad + cards `future` siguen read-only por diseño. (hecho 2026-06-03)
 
 ### Hacer la app interactiva
 - [x] ~~Modal "+ Agregar sujeto" en `/segmentos`~~ — hecho 2026-06-03.
 - [x] ~~Editar / pausar / eliminar segmentos desde la card~~ — hecho 2026-06-03 (kebab menu + confirm modal).
 - [ ] **Competitor activity panel en `/overview`** — top 3-5 competidores por delta semanal de menciones (estructurado, no narrativo). Necesita endpoint que agregue `mentions` por `tracked_subject` con período comparable. Razón: hoy los competidores sólo aparecen como número crudo en `/segmentos` o mencionados en memos; falta una vista de un vistazo en el dashboard principal.
-- [ ] **Drill-down de competidor** en `/segmentos` — click en un sujeto de tipo `competitor` abre una vista con: menciones recientes, breakdown de sentiment, top contactos que interactúan con nosotros Y con el competidor (overlap de audiencia). Necesita endpoint `GET /tracked-subjects/{id}/detail` + cruce con `contacts`/`interactions`.
-- [ ] Toggles de módulos en `/canales` (Core / Kaizen por canal) — necesita endpoint PATCH `/channels/{key}`.
+- [x] ~~**Drill-down de competidor** en `/segmentos`~~ — hecho 2026-06-03 (Saul: drawer con menciones, sentiment, top contactos · backend `GET /tracked-subjects/{id}/detail`).
+- [x] ~~Toggles de módulos en `/canales`~~ — hecho 2026-06-03 (Saul: `PATCH /channels/{key}` + toggles funcionales).
 - [ ] Botón "Conectar canal" en `/canales` — abre flujo OAuth real (bloqueado por App Review de Meta).
 - [ ] Botón "Sincronizar todo" — dispara workers de Apify a demanda.
-- [ ] Reasignar / marcar resuelto desde el inbox (UI de Kaizen sin responder). Hoy el inbox es sólo-lectura.
+- [x] ~~Reasignar / marcar resuelto desde el inbox~~ — hecho 2026-06-03 (Saul: acciones por conversación · backend `PATCH /conversations/{id}` status + assignment). Responder al cliente sigue diferido (espera App Review).
 
 ### Polish del dashboard / shell
 - [x] ~~Wire del masthead a `/auth/me`~~ — hecho 2026-05-20 (MeService + tenant inline en /auth/me).
 - [x] ~~Form de login real~~ — hecho 2026-05-20 (página `/login` con email + password + recordarme).
 - [x] ~~Logout button + flujo de sesión expirada~~ — hecho 2026-05-20 (avatar dropdown + interceptor 401 → /login).
 - [ ] Tenant switcher (cuando el user pertenezca a >1 tenant).
-- [ ] Búsqueda ⌘K — palette sobre conversaciones, contactos, tracked subjects.
+- [x] ~~Búsqueda ⌘K~~ — hecho 2026-06-03 (Saul: palette sobre conversaciones / contactos / segmentos · backend `GET /search`).
 - [ ] Filtros adicionales en el inbox (sentiment + canal combinados, no sólo grouping).
-- [ ] Responsive / mobile — actualmente desktop-first (1440px).
+- [x] ~~Responsive / mobile~~ — hecho 2026-06-03 (Saul: breakpoints mobile/tablet).
 - [ ] Empty states + error states consistentes en cada página.
 
 ### Datos / demo
@@ -53,14 +53,16 @@ Actualizar al final de cada sesión.
 
 ### Endpoints que faltan
 - [x] ~~`GET /auth/me` debería devolver tenant info inline~~ — hecho 2026-05-20 (devuelve `{user, initials, role, tenant:{id,slug,name,modules}}`).
-- [ ] `GET /insights` paginado (separar de `/dashboard/overview`).
+- [x] ~~`GET /insights` paginado~~ — hecho 2026-05-20 (Roger).
 - [ ] `GET /tenant-users` + `POST /tenant-users/invite` (para `/equipo`).
-- [ ] `PATCH /tenants/me/settings` y `PATCH /tenants/me/modules` (para `/ajustes`).
-- [ ] `PATCH /channels/{key}` (toggles de módulos).
-- [ ] `GET /search?q=...` (cross-table search para ⌘K).
-- [ ] `POST /conversations/{id}/reply` (Kaizen — diferido a propósito).
-- [ ] `POST /auth/logout` (revocación de token).
-- [ ] `POST /auth/refresh` (renovar token sin re-login).
+- [x] ~~`PATCH /tenants/me/settings` y `PATCH /tenants/me/modules`~~ — hecho por Saul (en uso por `/ajustes` desde 2026-06-03).
+- [x] ~~`PATCH /channels/{key}` (toggles de módulos)~~ — hecho 2026-06-03 (Saul).
+- [x] ~~`GET /search?q=...`~~ — hecho 2026-06-03 (Saul, alimenta ⌘K).
+- [x] ~~`GET /tenants/me`~~ — hecho 2026-06-03 (Roger, lo necesita `/ajustes` para hidratar estado).
+- [x] ~~`PATCH /conversations/{id}`~~ — hecho 2026-06-03 (Saul: status + assignment).
+- [ ] `POST /conversations/{id}/reply` (Kaizen — diferido a propósito, requiere App Review).
+- [x] ~~`POST /auth/logout`~~ — hecho 2026-06-03 (Saul, con revocación de `jti`).
+- [x] ~~`POST /auth/refresh`~~ — hecho 2026-06-03 (Saul).
 
 ### Workers / pipelines
 - [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo. **(ÚLTIMO — sólo TikTok/competidores, no bloquea el MVP)**
@@ -75,9 +77,9 @@ Actualizar al final de cada sesión.
 - [ ] Deltas reales para TMR · Kaizen y Sin resolver (hoy hardcodeados). Necesita ingestar mensajes outbound + timestamps de resolución.
 
 ### Calidad
-- [ ] Tests de integración para los endpoints (hoy sólo existe `test_health.py`).
-- [ ] Ruff + mypy CI.
-- [ ] Logging estructurado (structlog ya está en deps, no se usa todavía).
+- [x] ~~Tests de integración para los endpoints~~ — hecho 2026-06-03 (Saul: suite de integración para auth/tenants/conversations/tracked-subjects).
+- [x] ~~Ruff + mypy CI~~ — hecho 2026-06-03 (Saul, baseline green).
+- [x] ~~Logging estructurado~~ — hecho 2026-06-03 (Saul: structlog wired).
 
 ---
 
