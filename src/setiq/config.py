@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_webhook_verify_token: str = "dev_only_change_me"
+    # Where Meta's OAuth dialog redirects back after the user consents.
+    # Must match exactly what's configured in the Meta App dashboard under
+    # "Facebook Login for Business → Configuration → Valid OAuth Redirect URIs".
+    # In dev: localhost API. In prod: api.setiq.bo public URL.
+    meta_oauth_redirect_uri: str = "http://localhost:8000/auth/meta/callback"
+    # Where the frontend lives — backend bounces the browser back here
+    # after handling the callback, so the user lands inside the app.
+    web_origin: str = "http://localhost:4200"
 
     anthropic_api_key: str = ""
 

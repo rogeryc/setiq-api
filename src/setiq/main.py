@@ -11,6 +11,7 @@ from setiq.config import settings
 from setiq.conversations import router as conversations_router
 from setiq.dashboard import router as dashboard_router
 from setiq.ingestion import meta_router
+from setiq.integrations.oauth import router as meta_oauth_router
 from setiq.insights import router as insights_router
 from setiq.logging_config import configure_logging
 from setiq.search import router as search_router
@@ -56,6 +57,7 @@ app.include_router(search_router)
 app.include_router(team_router)
 app.include_router(tenants_router)
 app.include_router(meta_router)
+app.include_router(meta_oauth_router)
 
 
 @app.get("/health")
