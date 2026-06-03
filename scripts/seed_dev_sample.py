@@ -137,6 +137,52 @@ CONTACTS: list[tuple[str, str, str | None, str]] = [
     ("carla.t", "Carla T.", "carla.t.bo", "positive"),
     ("pancho.alquila", "Pancho (alquiler)", None, "negative"),
     ("ines.l", "Inés L.", "ines.l", "positive"),
+    # --- Expanded set for demo richness ---
+    ("renatobo", "Renato A.", "renato.a.bo", "positive"),
+    ("constanzaq", "Constanza Q.", None, "positive"),
+    ("hugo.beni", "Hugo (Beni)", None, "neutral"),
+    ("alepotosi", "Ale Potosí", "ale.potosi", "negative"),
+    ("clara.oruro", "Clara Oruro", None, "positive"),
+    ("nelson.alquila", "Nelson Alquiler", None, "negative"),
+    ("vlachi.estudia", "Vlachi (estudiante)", "vlachi.bo", "positive"),
+    ("mati.elalto", "Mati (El Alto)", None, "neutral"),
+    ("ana.libreria", "Ana (librería)", "ana.libreria", "positive"),
+    ("rodi.scz", "Rodi SC", None, "positive"),
+    ("luchi.cbba", "Luchi C.", "luchi.cbba", "neutral"),
+    ("noemy.t", "Noemy T.", None, "positive"),
+    ("vivi.suscriptora", "Vivi · suscriptora", "vivi.bo", "positive"),
+    ("toro_critico", "El Toro Crítico", None, "negative"),
+    ("pelu.estudia", "Pelu (periodismo)", "pelu.estudia", "neutral"),
+    ("zaida_periodista", "Zaida (colega)", "zaida.periodista", "positive"),
+    ("igor.lapaz", "Igor L.", None, "negative"),
+    ("monica.sc", "Mónica SC", "monica.sc", "neutral"),
+    ("yola.tarija", "Yola Tarija", None, "positive"),
+    ("danielalibrera", "Daniela librera", "daniela.librera", "positive"),
+    ("manucbba_n", "Manu Cochabamba", None, "neutral"),
+    ("anonimo_277", "—", None, "negative"),
+    ("anonimo_348", "—", None, "neutral"),
+    ("anonimo_419", "—", None, "negative"),
+    ("vero.activista", "Vero · activista", "vero.act", "positive"),
+    ("dani.alquila", "Dani (alquiler)", None, "negative"),
+    ("juan.lapaz77", "Juan LP", None, "positive"),
+    ("mari.docente", "Mari (docente)", "mari.docente", "positive"),
+    ("lautaro.b", "Lautaro B.", None, "neutral"),
+    ("naty.suscribete", "Naty · pagué el newsletter", "naty.bo", "positive"),
+    ("polonia.k", "Polonia K.", None, "neutral"),
+    ("damianl.scz", "Damián L.", "damian.l", "negative"),
+    ("lujan.sucre", "Luján Sucre", None, "positive"),
+    ("toni.tarateño", "Toni (Tarata)", None, "neutral"),
+    ("zoea_cbba", "Zoe A.", "zoe.a", "positive"),
+    ("teresita.lp", "Teresita LP", None, "neutral"),
+    ("kenyi.estudia", "Kenyi (estudia)", "kenyi.estudia", "positive"),
+    ("ovejanegra", "Oveja Negra", None, "negative"),
+    ("yenny.beni", "Yenny Beni", "yenny.beni", "neutral"),
+    ("federico.r", "Federico R.", None, "negative"),
+    ("mecho.cbba", "Mecho (Cocha)", "mecho.cbba", "positive"),
+    ("paolo.libreria", "Paolo (librería)", None, "positive"),
+    ("anonimo_503", "—", None, "negative"),
+    ("susi.docente", "Susi (docente)", "susi.docente", "positive"),
+    ("rafa.alquila", "Rafa (alquiler)", None, "negative"),
 ]
 
 
@@ -315,6 +361,91 @@ CONVERSATION_THEMES: list[dict[str, Any]] = [
         "default_intent_mix": [("praise", "positive"), ("question", "neutral"), ("purchase_intent", "positive")],
         "n_contacts": 6,
         "n_messages": 16,
+    },
+    # --- Demo expansion: wider range of situations ---
+    {
+        "channel": "instagram_comment",
+        "thread_id": "ig_post_carnaval_oruro",
+        "subject": "Reel sobre Carnaval de Oruro y patrimonio",
+        "default_intent_mix": [("praise", "positive"), ("praise", "positive"), ("question", "neutral")],
+        "n_contacts": 11, "n_messages": 26,
+    },
+    {
+        "channel": "instagram_comment",
+        "thread_id": "ig_post_estatutos",
+        "subject": "Nota sobre estatutos departamentales",
+        "default_intent_mix": [("complaint", "negative"), ("question", "neutral"), ("complaint", "negative")],
+        "n_contacts": 8, "n_messages": 19,
+    },
+    {
+        "channel": "tiktok_comment",
+        "thread_id": "tt_video_serie_alquileres_2",
+        "subject": "TikTok parte 2 — alquileres en El Alto",
+        "default_intent_mix": [("praise", "positive"), ("complaint", "negative"), ("question", "neutral")],
+        "n_contacts": 10, "n_messages": 24,
+    },
+    {
+        "channel": "instagram_dm",
+        "thread_id": None,
+        "subject": "DMs — colegas pidiendo colaboración",
+        "default_intent_mix": [("purchase_intent", "positive"), ("question", "neutral")],
+        "n_contacts": 4, "n_messages": 11,
+    },
+    {
+        "channel": "facebook_comment",
+        "thread_id": "fb_post_subsidios",
+        "subject": "Comentarios FB — nota sobre subsidios",
+        "default_intent_mix": [("complaint", "negative"), ("complaint", "negative"), ("praise", "neutral")],
+        "n_contacts": 9, "n_messages": 21,
+    },
+    {
+        "channel": "instagram_comment",
+        "thread_id": "ig_post_periodismo_independiente",
+        "subject": "Editorial: el rol del periodismo independiente",
+        "default_intent_mix": [("praise", "positive"), ("praise", "positive"), ("praise", "neutral")],
+        "n_contacts": 7, "n_messages": 17,
+    },
+    {
+        "channel": "email",
+        "thread_id": "newsletter_2026_05_002",
+        "subject": "Email — respuestas a número 'Una semana en Tarija'",
+        "default_intent_mix": [("praise", "positive"), ("question", "neutral"), ("purchase_intent", "positive")],
+        "n_contacts": 5, "n_messages": 12,
+    },
+    {
+        "channel": "facebook_dm",
+        "thread_id": None,
+        "subject": "Messenger — soporte (newsletter / cobro)",
+        "default_intent_mix": [("support_request", "neutral"), ("support_request", "neutral"), ("question", "neutral")],
+        "n_contacts": 4, "n_messages": 11,
+    },
+    {
+        "channel": "tiktok_comment",
+        "thread_id": "tt_video_explicador_corto",
+        "subject": "TikTok explicador — '5 cosas del nuevo decreto'",
+        "default_intent_mix": [("praise", "positive"), ("question", "neutral"), ("praise", "neutral")],
+        "n_contacts": 9, "n_messages": 22,
+    },
+    {
+        "channel": "instagram_dm",
+        "thread_id": None,
+        "subject": "DMs — fuentes ofreciendo material",
+        "default_intent_mix": [("question", "neutral"), ("purchase_intent", "positive")],
+        "n_contacts": 3, "n_messages": 9,
+    },
+    {
+        "channel": "instagram_comment",
+        "thread_id": "ig_post_critica_sesgo",
+        "subject": "Comentarios duros — acusación de sesgo",
+        "default_intent_mix": [("complaint", "negative"), ("complaint", "negative"), ("praise", "positive")],
+        "n_contacts": 12, "n_messages": 28,
+    },
+    {
+        "channel": "instagram_comment",
+        "thread_id": "ig_post_eleccion_local",
+        "subject": "Cobertura de elección municipal — comentarios mixtos",
+        "default_intent_mix": [("praise", "positive"), ("complaint", "negative"), ("question", "neutral")],
+        "n_contacts": 9, "n_messages": 21,
     },
 ]
 
@@ -535,6 +666,137 @@ MENTIONS: list[dict[str, Any]] = [
      "author_handle": "luismvelasco", "author_name": "Luis Velasco",
      "text": "Tarija sigue sin recursos suficientes — ya nadie habla del tema",
      "sentiment": "negative", "intent": "complaint"},
+    # --- Demo expansion — competitor balance + richer brand chatter ---
+    # Diego Penna (rising fast in demo)
+    {"platform": "tiktok", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "El detrás de escena del nuevo decreto, hilo en comentarios",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "tiktok", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "Lo que la prensa tradicional no te cuenta — explico en 75s",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "Edición especial: 1.000 suscriptores en una semana, gracias",
+     "sentiment": "positive", "intent": "other"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Diego Penna",
+     "author_handle": "@noemy.t", "author_name": "Noemy T.",
+     "text": "Diego Penna tiene un enfoque distinto, complementa a @thalma",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "facebook", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "dpenna.bo", "author_name": "Diego Penna",
+     "text": "Suma de nuevos suscriptores al newsletter — abrimos plan anual",
+     "sentiment": "positive", "intent": "other"},
+    # Soledad Murillo
+    {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "Llegué a Tarija — recorrida con productores rurales esta semana",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "Pódcast: 'El costo invisible del subsidio' — disponible ahora",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "tiktok", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "TikTok primer episodio — 'lo que aprendí cubriendo el agro'",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Soledad Murillo",
+     "author_handle": "@vivi.bo", "author_name": "Vivi",
+     "text": "Sole hace un periodismo que se siente cercano, gran trabajo",
+     "sentiment": "positive", "intent": "praise"},
+    # La Trinchera (newsletter)
+    {"platform": "instagram", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "@latrinchera.news", "author_name": "La Trinchera",
+     "text": "Esta semana: lectura larga sobre el modelo extractivo",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "facebook", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "latrinchera", "author_name": "La Trinchera",
+     "text": "Editorial colectiva: necesitamos hablar del agua en Cochabamba",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "web", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "latrinchera.bo", "author_name": "La Trinchera",
+     "text": "Nueva entrega: cómo se redactó el último decreto",
+     "sentiment": "neutral", "intent": "other"},
+    # Brand — Thalma (more volume + variety)
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@constanzaq", "author_name": "Constanza Q.",
+     "text": "Cancelé mi suscripción a un diario rancio después de leer @thalma",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@kenyi.estudia", "author_name": "Kenyi",
+     "text": "El método de investigación de thalma debería enseñarse en periodismo",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@vlachi.bo", "author_name": "Vlachi",
+     "text": "@thalma cuando salís en vivo otra vez? Te seguimos los estudiantes 📚",
+     "sentiment": "positive", "intent": "question"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@yenny.beni", "author_name": "Yenny Beni",
+     "text": "Necesitamos una nota de thalma sobre Beni también, siempre nos olvidan",
+     "sentiment": "neutral", "intent": "question"},
+    {"platform": "facebook", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "vero.act", "author_name": "Vero · activista",
+     "text": "Compartiendo la nota de thalma en mi colectivo de organizaciones sociales",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@mati.elalto", "author_name": "Mati",
+     "text": "Por fin alguien que entiende El Alto y no nos trata de ignorantes",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@anonimo_503", "author_name": "—",
+     "text": "Tu nota está sesgada, ya no te leo más",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@damian.l", "author_name": "Damián L.",
+     "text": "@thalma seguís repitiendo lo que dicen los lobbies inmobiliarios",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@naty.bo", "author_name": "Naty",
+     "text": "Pagué la suscripción anual de thalma y vale cada centavo",
+     "sentiment": "positive", "intent": "purchase_intent"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@zoe.a", "author_name": "Zoe A.",
+     "text": "Llegué por TikTok a thalma, ahora soy suscriptora del newsletter",
+     "sentiment": "positive", "intent": "purchase_intent"},
+    {"platform": "facebook", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "mari.docente", "author_name": "Mari (docente)",
+     "text": "Estoy usando los hilos de thalma como material para mis clases de comunicación",
+     "sentiment": "positive", "intent": "praise"},
+    # Vivienda / alquileres — keep saturating topic
+    {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
+     "author_handle": "@dani.alquila.lpz", "author_name": "Dani",
+     "text": "En Sopocachi piden 800 dólares por un monoambiente, qué locura",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Vivienda / alquileres",
+     "author_handle": "@rafa.alquila.cbba", "author_name": "Rafa",
+     "text": "Cochabamba sin contrato, todo en negro — me venció la prórroga",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
+     "author_handle": "@hugo.beni", "author_name": "Hugo",
+     "text": "En Trinidad un cuarto solo te lo alquilan si tenés garante con propiedad",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Vivienda / alquileres",
+     "author_handle": "@nelson.alquila", "author_name": "Nelson",
+     "text": "Hilo: las 5 inmobiliarias más caras de Santa Cruz #alquileres",
+     "sentiment": "negative", "intent": "complaint"},
+    # Política departamental
+    {"platform": "facebook", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "monica.sc", "author_name": "Mónica SC",
+     "text": "Santa Cruz necesita más fondos pero también más control",
+     "sentiment": "neutral", "intent": "complaint"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "@lujan.sucre", "author_name": "Luján Sucre",
+     "text": "Sucre quedó relegada en la repartición presupuestaria — otra vez",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "@ale.potosi", "author_name": "Ale Potosí",
+     "text": "Potosí da las regalías y no recibe servicios básicos, hasta cuándo??",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "facebook", "kind": "post", "subject_label": "Política departamental",
+     "author_handle": "noticiastarija", "author_name": "Noticias Tarija",
+     "text": "Gobernación tarijeña pide reunión con el ejecutivo por reparto",
+     "sentiment": "neutral", "intent": "other"},
 ]
 
 
@@ -1215,6 +1477,206 @@ INSIGHTS_SEED: list[dict[str, Any]] = [
         ),
         "footnote": "Detalle: KPI 'TMR · Kaizen' en /overview.",
         "actions": [{"label": "Ver inbox", "route": "/inbox"}],
+    },
+    # --- Demo expansion: denser /recomendaciones feed ---
+    {
+        "kind": "memo",
+        "rank": 15,
+        "severity": "med",
+        "tag": "Memo 16 · Geografía",
+        "confidence": "Confianza 85%",
+        "title": "El Alto crece como audiencia",
+        "title_em": "+38% en 30 días",
+        "body": (
+            "Cuentas geolocalizadas en El Alto pasaron de 220 a 304 seguidores "
+            "engaged este mes. El detonante fue la serie de alquileres parte 2. "
+            "Vale producir contenido específico para esa audiencia."
+        ),
+        "footnote": "Sugerencia: hilo dedicado o reel grabado en barrio.",
+        "actions": [{"label": "Crear segmento", "variant": "acc"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 16,
+        "severity": "low",
+        "tag": "Memo 17 · Comunidad",
+        "confidence": "Confianza 78%",
+        "title": "5 colegas pidieron",
+        "title_em": "colaboración esta semana",
+        "body": (
+            "Detectamos 5 DMs de periodistas independientes (Sole Murillo, "
+            "Gime, Vero activista, otros 2) buscando coautoría o entrevista "
+            "cruzada. Ventana corta — el de Sole expira en 9 días."
+        ),
+        "footnote": "Ver hilos en /inbox · filtro DM.",
+        "actions": [{"label": "Abrir inbox", "route": "/inbox"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 17,
+        "severity": "med",
+        "tag": "Memo 18 · Crisis temprana",
+        "confidence": "Confianza 89%",
+        "title": "Acusación de sesgo",
+        "title_em": "campaña coordinada",
+        "body": (
+            "9 cuentas con menos de 50 followers atacaron sincronizadamente "
+            "el editorial sobre subsidios usando frases idénticas. Patrón "
+            "típico de campaña operada. Tres opciones: ignorar, responder "
+            "público, o documentarlo como nota lateral."
+        ),
+        "footnote": "Recomendación: nota lateral baja el costo reputacional.",
+        "actions": [
+            {"label": "Ver hilo", "route": "/inbox"},
+            {"label": "Pasar a borrador", "variant": "ghost"},
+        ],
+    },
+    {
+        "kind": "memo",
+        "rank": 18,
+        "severity": "low",
+        "tag": "Memo 19 · Plataforma",
+        "confidence": "Confianza 72%",
+        "title": "TikTok empezando a dar",
+        "title_em": "leads de calidad",
+        "body": (
+            "8 suscriptores nuevos esta semana llegaron desde un solo TikTok "
+            "(serie alquileres parte 2). Por primera vez TikTok genera más "
+            "leads pagos que Instagram en términos relativos."
+        ),
+        "footnote": "Considerar más explicadores en formato vertical.",
+        "actions": [],
+    },
+    {
+        "kind": "memo",
+        "rank": 19,
+        "severity": "low",
+        "tag": "Memo 20 · Producto",
+        "confidence": "Confianza 81%",
+        "title": "Edición en audio:",
+        "title_em": "31 personas pidieron",
+        "body": (
+            "31 personas (sumando comentarios + DMs) preguntaron por versión "
+            "podcast/audio de las notas largas. Edición piloto con 1 episodio "
+            "valida si vale el costo de producción."
+        ),
+        "footnote": "Costo estimado: 4h por episodio.",
+        "actions": [{"label": "Lanzar piloto", "variant": "ghost"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 20,
+        "severity": "med",
+        "tag": "Memo 21 · Engagement",
+        "confidence": "Confianza 84%",
+        "title": "Reels superan a posts",
+        "title_em": "4.2× engagement",
+        "body": (
+            "En las últimas 4 semanas los reels generan 4.2× más engagement "
+            "que un post estático en IG. La proporción que estás publicando "
+            "hoy es 1 reel cada 4 posts — invertirla aceleraría crecimiento."
+        ),
+        "footnote": "Promedio del mes anterior.",
+        "actions": [],
+    },
+    {
+        "kind": "memo",
+        "rank": 21,
+        "severity": "high",
+        "tag": "Memo 22 · Riesgo legal",
+        "confidence": "Confianza 76%",
+        "title": "Cita sin atribuir",
+        "title_em": "en hilo del lunes",
+        "body": (
+            "El bloque 3 del hilo del lunes incluye un dato del 38% de "
+            "subidas de alquiler. Originalmente publicado por un colega "
+            "(@solangem), sin link a la fuente. Riesgo bajo pero detectable. "
+            "Una edición rápida del hilo lo soluciona."
+        ),
+        "footnote": "Buena práctica editorial.",
+        "actions": [{"label": "Editar hilo", "variant": "acc"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 22,
+        "severity": "low",
+        "tag": "Memo 23 · Newsletter",
+        "confidence": "Confianza 87%",
+        "title": "Tasa de apertura",
+        "title_em": "47%",
+        "body": (
+            "El último envío del newsletter tuvo 47% de apertura, contra el "
+            "promedio del sector (22%). El asunto 'Lo que aprendí en Tarija' "
+            "performó mejor que cualquiera de los últimos 6 envíos."
+        ),
+        "footnote": "Replicar fórmula 'lo que aprendí + lugar' en próximas ediciones.",
+        "actions": [],
+    },
+    {
+        "kind": "memo",
+        "rank": 23,
+        "severity": "med",
+        "tag": "Memo 24 · Patrocinio",
+        "confidence": "Confianza 73%",
+        "title": "Marca de retail quiere",
+        "title_em": "patrocinar serie",
+        "body": (
+            "Llegó un DM de una cadena de retail proponiendo patrocinio para "
+            "la serie de alquileres. Conflicto editorial obvio — ellos son "
+            "parte del problema que cubrís. Vale plantarse en política de "
+            "rechazo y posiblemente publicarlo."
+        ),
+        "footnote": "Posicionamiento de marca a largo plazo.",
+        "actions": [{"label": "Ver mensaje", "route": "/inbox"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 24,
+        "severity": "low",
+        "tag": "Memo 25 · Métricas",
+        "confidence": "Confianza 79%",
+        "title": "Cohort de febrero",
+        "title_em": "84% retention a 90 días",
+        "body": (
+            "Los suscriptores que se sumaron en febrero todavía siguen en su "
+            "84% al cumplirse 90 días. Muy por encima del benchmark del "
+            "sector (60-65%). Indicador fuerte de product-market fit."
+        ),
+        "footnote": "Próximo hito: validar con cohort de marzo.",
+        "actions": [],
+    },
+    {
+        "kind": "memo",
+        "rank": 25,
+        "severity": "med",
+        "tag": "Memo 26 · Distribución",
+        "confidence": "Confianza 80%",
+        "title": "Tu nota citada en",
+        "title_em": "El Deber y Página Siete",
+        "body": (
+            "Esta semana dos medios tradicionales citaron tu trabajo sobre "
+            "alquileres como fuente. Esto valida la calidad y abre la puerta "
+            "a colaboraciones formales. Considerar contactar editores."
+        ),
+        "footnote": "Posible ingreso por sindicación.",
+        "actions": [{"label": "Listar citas", "route": "/segmentos"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 26,
+        "severity": "low",
+        "tag": "Memo 27 · Tono",
+        "confidence": "Confianza 75%",
+        "title": "Tu tono migró a",
+        "title_em": "más declarativo",
+        "body": (
+            "Análisis del lenguaje muestra que en los últimos 30 días tus "
+            "posts pasaron de tono pregunta/exploración a declarativo / "
+            "afirmativo. Lectura más confiada pero perdiendo invitación a "
+            "comentar (engagement bajó 8%)."
+        ),
+        "footnote": "Equilibrio entre confianza y participación.",
+        "actions": [],
     },
 ]
 

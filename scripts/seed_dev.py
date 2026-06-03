@@ -33,7 +33,7 @@ async def main() -> None:
                 INSERT INTO tenants (slug, name, status, modules, settings)
                 VALUES (
                     'thalma',
-                    'Thalma',
+                    'Thalma Roca',
                     'active',
                     '{"setiq": {"tier": "pro"}, "kaizen": {"enabled": true}}'::jsonb,
                     '{
@@ -68,7 +68,7 @@ async def main() -> None:
                 user_id = await conn.fetchval(
                     """
                     INSERT INTO users (email, password_hash, name)
-                    VALUES ($1, $2, 'Thalma')
+                    VALUES ($1, $2, 'Thalma Roca')
                     RETURNING id
                     """,
                     "thalma@example.com",
@@ -77,7 +77,11 @@ async def main() -> None:
                 print(f"user thalma@example.com → {user_id} (password: changeme123)")
             else:
                 user_id = existing
-                print(f"user thalma@example.com → {user_id} (already exists, password unchanged)")
+                # Keep display name in sync with the constant above; don't touch password.
+                await conn.execute(
+                    "UPDATE users SET name = 'Thalma Roca' WHERE id = $1", user_id
+                )
+                print(f"user thalma@example.com → {user_id} (name synced; password unchanged)")
 
             await conn.execute(
                 """
