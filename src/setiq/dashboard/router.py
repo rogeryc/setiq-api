@@ -4,14 +4,16 @@ Computes aggregations entirely in SQL — RLS scopes every query to the
 caller's tenant automatically via the connection's `app.current_tenant`
 GUC (set by the auth dependency).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from setiq.auth.dependencies import get_tenant_db
 from setiq.dashboard.schemas import (
     ChannelSlice,
+    CompetitorActivity,
+    CompetitorActivityResponse,
     FeaturedRecommendation,
     InsightAction,
     KpiDelta,
@@ -50,7 +52,7 @@ _PLATFORM_LABELS = {
 async def overview(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> OverviewResponse:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     thirty_days_ago = now - timedelta(days=30)
     sixty_days_ago = now - timedelta(days=60)
     seven_days_ago = now - timedelta(days=7)
@@ -240,6 +242,74 @@ async def overview(
         lead=lead,
         featured_recommendation=featured,
         memos=memos,
+        generated_at=now,
+    )
+
+
+@router.get(
+    "/competitor-activity",
+    response_model=CompetitorActivityResponse,
+    response_model_exclude_none=True,
+)
+async def competitor_activity(
+    days: int = Query(7, ge=1, le=90),
+    limit: int = Query(5, ge=1, le=20),
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> CompetitorActivityResponse:
+    now = datetime.now(UTC)
+    current_start = now - timedelta(days=days)
+    previous_start = now - timedelta(days=days * 2)
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            ts.id,
+            ts.label,
+            COUNT(m.id) FILTER (WHERE m.content_published_at >= $1) AS current,
+            COUNT(m.id) FILTER (
+                WHERE m.content_published_at >= $2 AND m.content_published_at < $1
+            ) AS previous,
+            AVG(CASE sc.label
+                  WHEN 'positive' THEN 1.0
+                  WHEN 'neutral'  THEN 0.5
+                  WHEN 'negative' THEN 0.0
+                END) FILTER (WHERE m.content_published_at >= $1) AS sentiment
+        FROM tracked_subjects ts
+        LEFT JOIN mentions m
+            ON m.tracked_subject_id = ts.id
+           AND m.content_published_at >= $2
+        LEFT JOIN LATERAL (
+            SELECT label
+            FROM mention_classifications mc
+            WHERE mc.mention_id = m.id AND mc.kind = 'sentiment'
+            ORDER BY confidence DESC NULLS LAST
+            LIMIT 1
+        ) sc ON true
+        WHERE ts.kind = 'competitor' AND ts.deleted_at IS NULL
+        GROUP BY ts.id, ts.label
+        ORDER BY current DESC, ts.label
+        LIMIT $3
+        """,
+        current_start, previous_start, limit,
+    )
+
+    competitors = [
+        CompetitorActivity(
+            id=r["id"],
+            label=r["label"],
+            mentions=int(r["current"] or 0),
+            previous=int(r["previous"] or 0),
+            delta=int(r["current"] or 0) - int(r["previous"] or 0),
+            sentiment_score=(
+                round(float(r["sentiment"]), 3) if r["sentiment"] is not None else None
+            ),
+        )
+        for r in rows
+    ]
+
+    return CompetitorActivityResponse(
+        period_days=days,
+        competitors=competitors,
         generated_at=now,
     )
 

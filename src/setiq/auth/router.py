@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from setiq import db
+from setiq.auth import revocation
 from setiq.auth.dependencies import CurrentUser, get_current_user
 from setiq.auth.jwt import issue_token
 from setiq.auth.passwords import verify_password
@@ -47,6 +48,30 @@ async def login(req: LoginRequest) -> TokenResponse:
         tenant_id=membership["tenant_id"],
         role=membership["role"],
         expires_in_minutes=ttl_minutes,
+        remember=req.remember_me,
+    )
+    return TokenResponse(access_token=token, expires_in_minutes=ttl_minutes)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(current_user: CurrentUser = Depends(get_current_user)) -> Response:
+    await revocation.revoke(current_user.jti, current_user.exp)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(current_user: CurrentUser = Depends(get_current_user)) -> TokenResponse:
+    ttl_minutes = (
+        settings.jwt_remember_me_minutes
+        if current_user.remember
+        else settings.jwt_expires_minutes
+    )
+    token = issue_token(
+        user_id=current_user.user_id,
+        tenant_id=current_user.tenant_id,
+        role=current_user.role,
+        expires_in_minutes=ttl_minutes,
+        remember=current_user.remember,
     )
     return TokenResponse(access_token=token, expires_in_minutes=ttl_minutes)
 

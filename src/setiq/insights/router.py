@@ -28,7 +28,7 @@ async def list_insights(
     conn: asyncpg.Connection = Depends(get_tenant_db),
 ) -> InsightsResponse:
     where_kind = "" if kind == "all" else "AND kind = $3"
-    params: list = [limit, offset]
+    params: list[int | str] = [limit, offset]
     if kind != "all":
         params.append(kind)
 

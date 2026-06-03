@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -6,6 +7,21 @@ from pydantic import BaseModel
 class KpiDelta(BaseModel):
     label: str
     tone: str  # 'pos' | 'neg' | 'warn' | 'neutral'
+
+
+class CompetitorActivity(BaseModel):
+    id: UUID
+    label: str
+    mentions: int
+    previous: int
+    delta: int
+    sentiment_score: float | None = None
+
+
+class CompetitorActivityResponse(BaseModel):
+    period_days: int
+    competitors: list[CompetitorActivity]
+    generated_at: datetime
 
 
 class OverviewKpi(BaseModel):

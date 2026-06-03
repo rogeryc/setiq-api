@@ -5,13 +5,11 @@ pool so RLS is bypassed — webhook_events rows have NULL tenant_id until the
 parser resolves it, and the parser writes across tenant boundaries during
 dispatch. Tenant_id is still explicitly set on every insert.
 
-Currently handles:
+Handles:
 - Instagram comments (`object='instagram'`, `changes[].field='comments'`)
-
-Planned next:
-- Instagram DMs (`messaging[]`)
+- Instagram DMs (`object='instagram'`, `entry[].messaging[]`)
 - Facebook Page comments (`object='page'`, `changes[].field='feed'`)
-- Facebook Messenger DMs
+- Facebook Messenger DMs (`object='page'`, `entry[].messaging[]`)
 """
 import logging
 from typing import Any
@@ -93,12 +91,84 @@ async def _process_instagram(conn: asyncpg.Connection, payload: dict[str, Any]) 
         for change in entry.get("changes", []) or []:
             if change.get("field") == "comments":
                 await _store_ig_comment(conn, tenant_id, change.get("value") or {})
-        # TODO: handle entry["messaging"] for IG DMs
+        for event in entry.get("messaging", []) or []:
+            await _store_dm(conn, tenant_id, "instagram", "instagram_dm", ig_id, event)
 
 
 async def _process_facebook(conn: asyncpg.Connection, payload: dict[str, Any]) -> None:
-    # TODO: FB feed (comments) + messenger
-    pass
+    for entry in payload.get("entry", []):
+        page_id = entry.get("id")
+        if not page_id:
+            continue
+        tenant_id = await _find_tenant_by_meta_id(conn, page_id)
+        if tenant_id is None:
+            logger.warning("no tenant for FB page %s; skipping entry", page_id)
+            continue
+        for change in entry.get("changes", []) or []:
+            if change.get("field") == "feed":
+                await _store_fb_comment(conn, tenant_id, page_id, change.get("value") or {})
+        for event in entry.get("messaging", []) or []:
+            await _store_dm(conn, tenant_id, "facebook", "facebook_dm", page_id, event)
+
+
+async def _store_dm(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    identity_channel: str,
+    conversation_channel: str,
+    self_id: str,
+    event: dict[str, Any],
+) -> None:
+    message = event.get("message")
+    if not message or message.get("is_echo"):
+        return
+    sender = event.get("sender") or {}
+    sender_id = sender.get("id")
+    if not sender_id or sender_id == self_id:
+        return
+
+    text = message.get("text") or ""
+    external_id = message.get("mid")
+
+    identity_id, contact_id = await _upsert_identity(
+        conn, tenant_id, identity_channel, sender_id, None,
+    )
+    conv_id = await _upsert_conversation(
+        conn, tenant_id, contact_id, identity_id, conversation_channel, None,
+    )
+    msg_id = await _insert_message(
+        conn, tenant_id, conv_id, text, external_id, event,
+    )
+    if msg_id is not None:
+        await queue.enqueue_classify_message(msg_id)
+
+
+async def _store_fb_comment(
+    conn: asyncpg.Connection, tenant_id: UUID, page_id: str, value: dict[str, Any]
+) -> None:
+    if value.get("item") != "comment" or value.get("verb") != "add":
+        return
+    sender = value.get("from") or {}
+    sender_id = sender.get("id")
+    display_name = sender.get("name")
+    if not sender_id or sender_id == page_id:
+        return
+
+    post_id = value.get("post_id")
+    text = value.get("message") or ""
+    external_id = value.get("comment_id")
+
+    identity_id, contact_id = await _upsert_identity(
+        conn, tenant_id, "facebook", sender_id, display_name,
+    )
+    conv_id = await _upsert_conversation(
+        conn, tenant_id, contact_id, identity_id, "facebook_comment", post_id,
+    )
+    msg_id = await _insert_message(
+        conn, tenant_id, conv_id, text, external_id, value,
+    )
+    if msg_id is not None:
+        await queue.enqueue_classify_message(msg_id)
 
 
 async def _upsert_identity(
@@ -163,9 +233,10 @@ async def _upsert_conversation(
             "UPDATE conversations SET last_message_at = NOW() WHERE id = $1",
             row["id"],
         )
-        return row["id"]
+        existing_id: UUID = row["id"]
+        return existing_id
 
-    return await conn.fetchval(
+    new_id: UUID = await conn.fetchval(
         """
         INSERT INTO conversations (
             tenant_id, contact_id, channel, channel_identity_id,
@@ -175,6 +246,7 @@ async def _upsert_conversation(
         """,
         tenant_id, contact_id, channel, identity_id, external_thread_id,
     )
+    return new_id
 
 
 async def _insert_message(
@@ -188,7 +260,7 @@ async def _insert_message(
     """Insert a message idempotently (unique on external_id). Returns the
     new message id, or None if the message was already ingested."""
     try:
-        return await conn.fetchval(
+        msg_id: UUID | None = await conn.fetchval(
             """
             INSERT INTO messages (
                 tenant_id, conversation_id, direction, sender_type,
@@ -198,6 +270,7 @@ async def _insert_message(
             """,
             tenant_id, conversation_id, content_text, external_id, raw_payload,
         )
+        return msg_id
     except asyncpg.UniqueViolationError:
         return None
 

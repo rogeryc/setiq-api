@@ -8,6 +8,11 @@ class ModuleToggles(BaseModel):
     kaizen: bool
 
 
+class ChannelModulesPatch(BaseModel):
+    setiq: bool | None = None
+    kaizen: bool | None = None
+
+
 class ChannelStatus(BaseModel):
     key: str           # 'instagram' | 'facebook' | 'tiktok' | 'email' | 'whatsapp' | 'phone'
     label: str         # 'Instagram'

@@ -3,7 +3,16 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-05-20 (repos transferidos a org `setiq-ai`)
+**Última actualización:** 2026-05-28 (Saul: parser Meta completo + repriorización; trabajo en branch `saul`)
+
+---
+
+## Prioridad actual (2026-05-28 · Saul)
+
+- **Hacer ahora:** todo lo que NO esté bloqueado por cuentas externas — endpoints de escritura del backend, interactividad del frontend, y calidad (tests/CI/logging).
+- **Apify → al final:** sólo aporta data de TikTok + competidores; no bloquea el resto del MVP.
+- **WhatsApp → no considerar todavía:** depende de App Review + cliente con número; fuera de alcance por ahora.
+- **Hecho 2026-05-28 (branch `saul`):** el parser de webhooks ya maneja las 4 superficies de Meta — IG comments + IG DMs, FB comments + FB Messenger (`src/setiq/ingestion/parser.py`). Antes sólo parseaba IG comments.
 
 ---
 
@@ -54,10 +63,10 @@ Actualizar al final de cada sesión.
 - [ ] `POST /auth/refresh` (renovar token sin re-login).
 
 ### Workers / pipelines
-- [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo.
+- [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo. **(ÚLTIMO — sólo TikTok/competidores, no bloquea el MVP)**
 - [ ] Worker Arq de clasificación con Claude. Código listo (`setiq.workers.runner`); bloqueado por `ANTHROPIC_API_KEY` con saldo.
 - [ ] Postmark inbound (email ingestion). Necesita cuenta Postmark + DNS de Thalma.
-- [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado.
+- [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado. **(NO CONSIDERAR TODAVÍA — fuera de alcance)**
 - [ ] Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días).
 
 ### Schema / datos

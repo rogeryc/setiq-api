@@ -1,11 +1,15 @@
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from setiq.auth.dependencies import get_tenant_db
 from setiq.tracked_subjects.schemas import (
+    MentionPreview,
+    OverlapContact,
+    SentimentBreakdown,
     TrackedSubjectCreate,
+    TrackedSubjectDetail,
     TrackedSubjectResponse,
     TrackedSubjectUpdate,
 )
@@ -25,7 +29,7 @@ def _row_to_response(row: asyncpg.Record) -> TrackedSubjectResponse:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         mention_count=int(row["mention_count"] or 0) if "mention_count" in row else 0,
-        last_mention_at=row["last_mention_at"] if "last_mention_at" in row else None,
+        last_mention_at=row.get("last_mention_at"),
     )
 
 
@@ -46,6 +50,109 @@ async def list_subjects(
         """
     )
     return [_row_to_response(r) for r in rows]
+
+
+@router.get(
+    "/{subject_id}/detail",
+    response_model=TrackedSubjectDetail,
+    response_model_exclude_none=True,
+)
+async def subject_detail(
+    subject_id: UUID,
+    limit: int = Query(10, ge=1, le=50),
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> TrackedSubjectDetail:
+    subj = await conn.fetchrow(
+        "SELECT id, kind, label FROM tracked_subjects "
+        "WHERE id = $1 AND deleted_at IS NULL",
+        subject_id,
+    )
+    if subj is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tracked subject not found")
+
+    total = await conn.fetchval(
+        "SELECT COUNT(*) FROM mentions WHERE tracked_subject_id = $1", subject_id
+    )
+
+    sentiment_rows = await conn.fetch(
+        """
+        SELECT sc.label, COUNT(*) AS cnt
+        FROM mentions m
+        JOIN LATERAL (
+            SELECT label FROM mention_classifications mc
+            WHERE mc.mention_id = m.id AND mc.kind = 'sentiment'
+            ORDER BY confidence DESC NULLS LAST
+            LIMIT 1
+        ) sc ON true
+        WHERE m.tracked_subject_id = $1
+        GROUP BY sc.label
+        """,
+        subject_id,
+    )
+    counts = {"positive": 0, "neutral": 0, "negative": 0}
+    for r in sentiment_rows:
+        if r["label"] in counts:
+            counts[r["label"]] = int(r["cnt"])
+    breakdown = SentimentBreakdown(**counts)
+
+    recent_rows = await conn.fetch(
+        """
+        SELECT m.id, m.platform, m.author_display_name, m.author_handle,
+               m.content_text, m.content_url, m.content_published_at,
+               sc.label AS sentiment
+        FROM mentions m
+        LEFT JOIN LATERAL (
+            SELECT label FROM mention_classifications mc
+            WHERE mc.mention_id = m.id AND mc.kind = 'sentiment'
+            ORDER BY confidence DESC NULLS LAST
+            LIMIT 1
+        ) sc ON true
+        WHERE m.tracked_subject_id = $1
+        ORDER BY m.content_published_at DESC NULLS LAST
+        LIMIT $2
+        """,
+        subject_id, limit,
+    )
+    recent = [
+        MentionPreview(
+            id=r["id"],
+            platform=r["platform"],
+            author_display_name=r["author_display_name"],
+            author_handle=r["author_handle"],
+            content_text=r["content_text"],
+            content_url=r["content_url"],
+            published_at=r["content_published_at"],
+            sentiment=r["sentiment"],
+        )
+        for r in recent_rows
+    ]
+
+    overlap_rows = await conn.fetch(
+        """
+        SELECT DISTINCT c.id, c.display_name
+        FROM contacts c
+        JOIN channel_identities ci ON ci.contact_id = c.id
+        WHERE c.deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM mentions m
+            WHERE m.tracked_subject_id = $1
+              AND lower(ltrim(m.author_handle, '@')) = lower(ltrim(ci.external_id, '@'))
+          )
+        LIMIT 20
+        """,
+        subject_id,
+    )
+    overlap = [OverlapContact(id=r["id"], display_name=r["display_name"]) for r in overlap_rows]
+
+    return TrackedSubjectDetail(
+        id=subj["id"],
+        kind=subj["kind"],
+        label=subj["label"],
+        mention_count=int(total or 0),
+        sentiment_breakdown=breakdown,
+        recent_mentions=recent,
+        audience_overlap=overlap,
+    )
 
 
 @router.post("", response_model=TrackedSubjectResponse, status_code=status.HTTP_201_CREATED)

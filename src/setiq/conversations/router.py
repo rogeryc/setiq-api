@@ -18,8 +18,10 @@ from setiq.auth.dependencies import get_tenant_db
 from setiq.conversations.schemas import (
     ConversationDetail,
     ConversationGroup,
-    ConversationSummary,
+    ConversationMutation,
     ConversationsResponse,
+    ConversationSummary,
+    ConversationUpdate,
     MessageDetail,
 )
 
@@ -294,6 +296,55 @@ async def get_conversation(
     if as_thread:
         return await _get_thread_detail(conn, conversation_id)
     return await _get_single_conversation(conn, conversation_id)
+
+
+@router.patch("/{conversation_id}", response_model=ConversationMutation)
+async def update_conversation(
+    conversation_id: UUID,
+    body: ConversationUpdate,
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> ConversationMutation:
+    sets: list[str] = []
+    args: list[object] = []
+    if body.status is not None:
+        args.append(body.status)
+        sets.append(f"status = ${len(args)}")
+        args.append(body.status)
+        sets.append(
+            f"closed_at = CASE WHEN ${len(args)} IN ('resolved', 'closed') "
+            "THEN NOW() ELSE NULL END"
+        )
+    if body.assigned_user_id is not None:
+        is_member = await conn.fetchval(
+            "SELECT 1 FROM tenant_users "
+            "WHERE tenant_id = current_tenant_id() AND user_id = $1",
+            body.assigned_user_id,
+        )
+        if not is_member:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Assignee is not a member of this tenant",
+            )
+        args.append(body.assigned_user_id)
+        sets.append(f"assigned_user_id = ${len(args)}")
+
+    if not sets:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Nothing to update")
+
+    args.append(conversation_id)
+    row = await conn.fetchrow(
+        f"UPDATE conversations SET {', '.join(sets)} "
+        f"WHERE id = ${len(args)} "
+        "RETURNING id, status, assigned_user_id",
+        *args,
+    )
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    return ConversationMutation(
+        id=row["id"],
+        status=row["status"],
+        assigned_user_id=row["assigned_user_id"],
+    )
 
 
 async def _get_single_conversation(

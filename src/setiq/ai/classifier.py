@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from anthropic import AsyncAnthropic
+from anthropic.types import TextBlock
 
 from setiq.config import settings
 
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 # narrow classification task.
 MODEL = "claude-haiku-4-5-20251001"
 
-SYSTEM_PROMPT = """You are classifying a customer message for a social-media customer-engagement platform serving brands in Latin America.
+SYSTEM_PROMPT = """You are classifying a customer message for a social-media \
+customer-engagement platform serving brands in Latin America.
 
 Return ONLY a JSON object with these exact fields, no other text:
 {
@@ -59,9 +61,11 @@ async def classify_text(text: str) -> dict[str, Any]:
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": text}],
     )
-    body = response.content[0].text.strip()
+    block = response.content[0]
+    body = block.text.strip() if isinstance(block, TextBlock) else ""
     try:
-        return json.loads(body)
+        parsed: dict[str, Any] = json.loads(body)
+        return parsed
     except json.JSONDecodeError as e:
         logger.error("Claude returned non-JSON: %r", body)
         raise ValueError(f"Claude response is not valid JSON: {e}") from e
