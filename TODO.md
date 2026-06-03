@@ -3,7 +3,7 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-06-03 (PR #1 de Saul mergeada en ambos repos + `/ajustes` editable)
+**Última actualización:** 2026-06-03 (PR #1 de Saul + `/ajustes` editable + invite a `/equipo`)
 
 ---
 
@@ -54,7 +54,7 @@ Actualizar al final de cada sesión.
 ### Endpoints que faltan
 - [x] ~~`GET /auth/me` debería devolver tenant info inline~~ — hecho 2026-05-20 (devuelve `{user, initials, role, tenant:{id,slug,name,modules}}`).
 - [x] ~~`GET /insights` paginado~~ — hecho 2026-05-20 (Roger).
-- [ ] `GET /tenant-users` + `POST /tenant-users/invite` (para `/equipo`).
+- [x] ~~`POST /team/invite`~~ — hecho 2026-06-03 (idempotente; devuelve temp_password sólo cuando crea usuario nuevo). `GET /team` ya existía.
 - [x] ~~`PATCH /tenants/me/settings` y `PATCH /tenants/me/modules`~~ — hecho por Saul (en uso por `/ajustes` desde 2026-06-03).
 - [x] ~~`PATCH /channels/{key}` (toggles de módulos)~~ — hecho 2026-06-03 (Saul).
 - [x] ~~`GET /search?q=...`~~ — hecho 2026-06-03 (Saul, alimenta ⌘K).
