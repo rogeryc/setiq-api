@@ -3,7 +3,7 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-06-03 (PR #1 de Saul + `/ajustes` editable + invite a `/equipo`)
+**Última actualización:** 2026-06-03 (sentiment+links en panel competidores, seed +variedad, empty-state share, filtros inbox)
 
 ---
 
@@ -39,13 +39,13 @@ Actualizar al final de cada sesión.
 - [x] ~~Logout button + flujo de sesión expirada~~ — hecho 2026-05-20 (avatar dropdown + interceptor 401 → /login).
 - [ ] Tenant switcher (cuando el user pertenezca a >1 tenant).
 - [x] ~~Búsqueda ⌘K~~ — hecho 2026-06-03 (Saul: palette sobre conversaciones / contactos / segmentos · backend `GET /search`).
-- [ ] Filtros adicionales en el inbox (sentiment + canal combinados, no sólo grouping).
+- [x] ~~Filtros adicionales en el inbox (sentiment + canal combinados)~~ — hecho 2026-06-03 (chips client-side, componen entre sí, grupos vacíos se ocultan).
 - [x] ~~Responsive / mobile~~ — hecho 2026-06-03 (Saul: breakpoints mobile/tablet).
-- [ ] Empty states + error states consistentes en cada página.
+- [~] Empty states + error states consistentes — componente `<app-empty-state>` creado y wired en channels + inbox (los huecos críticos). Resto de páginas tienen UI local que funciona; migrarlas al componente cuando convenga.
 
 ### Datos / demo
-- [ ] Plantillas más variadas en `scripts/seed_dev_sample.py` (hoy ~6 templates por intent/sentiment → mucho texto duplicado entre mensajes).
-- [ ] Datos para `/recomendaciones` (más de 5 insights — generar 15-20).
+- [x] ~~Plantillas más variadas en seed~~ — hecho 2026-06-03 (30 → 75 plantillas; +9 mentions; +5 insights; timestamps de mentions sesgados a últimos 14 días para que el panel de competidores muestre data).
+- [x] ~~Datos para `/recomendaciones`~~ — hecho 2026-06-03 (18 insights mix lead/featured/memo).
 
 ---
 
