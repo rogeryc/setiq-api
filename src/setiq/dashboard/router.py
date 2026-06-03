@@ -158,6 +158,11 @@ async def overview(
     ]
     channel_total = sum(platform_totals.values())
 
+    # TMR · Kaizen — mean response time (outbound after inbound in same convo)
+    tmr_minutes = await _compute_tmr_minutes(conn, seven_days_ago, now)
+    tmr_prev = await _compute_tmr_minutes(conn, fourteen_days_ago, seven_days_ago)
+    tmr_kpi = _build_tmr_kpi(tmr_minutes, tmr_prev)
+
     kpis = [
         OverviewKpi(
             label="Interacciones",
@@ -179,13 +184,7 @@ async def overview(
             delta=KpiDelta(label=f"{high_priority} altas", tone="warn") if high_priority else None,
             sub="prioridad de servicio",
         ),
-        OverviewKpi(
-            label="TMR · Kaizen",
-            value="18",
-            unit="min",
-            delta=KpiDelta(label="SLA", tone="pos"),
-            sub="objetivo < 30min",
-        ),
+        tmr_kpi,
     ]
 
     # Insights: lead copy, featured recommendation, memos.
@@ -311,6 +310,83 @@ async def competitor_activity(
         period_days=days,
         competitors=competitors,
         generated_at=now,
+    )
+
+
+async def _compute_tmr_minutes(
+    conn: asyncpg.Connection,
+    start: datetime,
+    end: datetime,
+) -> float | None:
+    """Mean response time in minutes for outbound messages in [start, end).
+
+    For each outbound message (agent/AI reply) in the window, looks up the
+    most recent inbound message in the same conversation that came before
+    it, and uses the time delta. Returns None when there are no qualifying
+    outbound messages (degenerate case — show '—' in the UI).
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT AVG(EXTRACT(EPOCH FROM (out_msg.sent_at - in_msg.sent_at)) / 60.0) AS mean_min,
+               COUNT(*) AS n
+        FROM messages out_msg
+        JOIN LATERAL (
+            SELECT m.sent_at
+            FROM messages m
+            WHERE m.conversation_id = out_msg.conversation_id
+              AND m.direction = 'inbound'
+              AND m.sent_at < out_msg.sent_at
+            ORDER BY m.sent_at DESC
+            LIMIT 1
+        ) in_msg ON TRUE
+        WHERE out_msg.direction = 'outbound'
+          AND out_msg.sender_type IN ('agent', 'ai')
+          AND out_msg.sent_at >= $1
+          AND out_msg.sent_at <  $2
+        """,
+        start,
+        end,
+    )
+    if row is None or row["n"] == 0 or row["mean_min"] is None:
+        return None
+    return float(row["mean_min"])
+
+
+def _build_tmr_kpi(current: float | None, previous: float | None) -> OverviewKpi:
+    """Render the TMR card from raw current/previous means.
+
+    SLA target is < 30 min; tone is `pos` under target, `warn` over.
+    Delta vs previous week: lower is better, so a drop is `pos`.
+    """
+    if current is None:
+        return OverviewKpi(
+            label="TMR · Kaizen",
+            value="—",
+            unit="min",
+            sub="Sin respuestas en la ventana",
+        )
+
+    value = f"{int(round(current))}"
+    sla_pos = current < 30
+    delta: KpiDelta | None = None
+    if previous is not None and previous > 0:
+        change = current - previous
+        if abs(change) >= 1:  # ignore sub-minute jitter
+            sign = "−" if change < 0 else "+"
+            delta = KpiDelta(
+                label=f"{sign}{abs(int(round(change)))}m vs semana previa",
+                tone="pos" if change < 0 else "warn",
+            )
+
+    if delta is None:
+        delta = KpiDelta(label="SLA", tone="pos" if sla_pos else "warn")
+
+    return OverviewKpi(
+        label="TMR · Kaizen",
+        value=value,
+        unit="min",
+        delta=delta,
+        sub="objetivo < 30min",
     )
 
 

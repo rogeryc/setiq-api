@@ -234,6 +234,22 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
 }
 
 
+# Stock agent replies — written generically (no tenant-specific names)
+# so the inbox doesn't repeat the same line over and over for the demo.
+AGENT_REPLIES: list[str] = [
+    "¡Gracias por escribirnos! Te respondo en un rato con detalle.",
+    "Gracias por el feedback, lo paso al equipo editorial.",
+    "Buen punto — vamos a hacer una nota de seguimiento.",
+    "Te dejo el link a la fuente original en DM.",
+    "Vamos a revisarlo y respondemos por acá hoy mismo.",
+    "Estamos al tanto del tema, gracias por marcarlo.",
+    "Te suscribís desde el link en la bio. ¡Bienvenida!",
+    "Anotado para la próxima entrega del newsletter.",
+    "Te pasamos el dato por mensaje directo.",
+    "Gracias por el detalle, ya lo estamos resolviendo.",
+]
+
+
 # Conversation themes
 CONVERSATION_THEMES: list[dict[str, Any]] = [
     {
@@ -572,11 +588,13 @@ async def main() -> None:
 
         await _wipe(conn, tenant_id)
         await _insert_tracked_subjects(conn, tenant_id)
+        # Team must exist before messages so outbound replies can attribute
+        # to real agent users (sender_user_id).
+        await _insert_team_members(conn, tenant_id)
         contact_index, identity_index = await _insert_contacts(conn, tenant_id)
         await _insert_conversations_and_messages(conn, tenant_id, contact_index, identity_index)
         await _insert_mentions(conn, tenant_id)
         await _insert_insights(conn, tenant_id)
-        await _insert_team_members(conn, tenant_id)
         await _print_summary(conn, tenant_id)
     finally:
         await conn.close()
@@ -691,6 +709,19 @@ async def _insert_conversations_and_messages(
     contact_ids: list[UUID],
     identity_map: dict[tuple[UUID, str], UUID],
 ) -> None:
+    # Agent user pool — for sender_user_id on outbound replies. Falls back
+    # to None (allowed by schema) if the team seed didn't run for some reason.
+    agent_rows = await conn.fetch(
+        """
+        SELECT u.id FROM users u
+        JOIN tenant_users tu ON tu.user_id = u.id
+        WHERE tu.tenant_id = $1 AND tu.role IN ('admin', 'agent')
+          AND u.deleted_at IS NULL
+        """,
+        tenant_id,
+    )
+    agent_ids: list[UUID] = [r["id"] for r in agent_rows]
+
     msg_seq = 0
     for theme in CONVERSATION_THEMES:
         channel: str = theme["channel"]
@@ -702,9 +733,16 @@ async def _insert_conversations_and_messages(
         contacts_in_thread = random.sample(eligible, n_contacts)
 
         msgs_per_contact = max(1, theme["n_messages"] // n_contacts)
-        # Spread themes across the last 50 days so period-over-period deltas
-        # have data on both sides of the 30-day boundary.
-        base_time = NOW - timedelta(days=random.randint(1, 50))
+        # Bias toward recent so the 7-day TMR window has data, while
+        # keeping some > 30 days for the "vs mes anterior" delta.
+        bucket = random.random()
+        if bucket < 0.5:
+            days_back = random.randint(1, 10)   # active week, half the themes
+        elif bucket < 0.8:
+            days_back = random.randint(11, 30)
+        else:
+            days_back = random.randint(31, 60)  # prior-period coverage
+        base_time = NOW - timedelta(days=days_back)
 
         for c_idx, contact_id in enumerate(contacts_in_thread):
             identity_id = identity_map[(contact_id, identity_channel)]
@@ -743,6 +781,27 @@ async def _insert_conversations_and_messages(
                 await _insert_message_classifications(
                     conn, tenant_id, msg_id, intent, sentiment, sent_at,
                 )
+
+                # ~60% chance an agent replies 5-90 minutes later. Skip when
+                # the intent is spam — wouldn't get a human reply.
+                if intent != "spam" and agent_ids and random.random() < 0.6:
+                    reply_at = sent_at + timedelta(minutes=random.randint(5, 90))
+                    if reply_at <= NOW:
+                        msg_seq += 1
+                        await conn.execute(
+                            """
+                            INSERT INTO messages (
+                                tenant_id, conversation_id, direction, sender_type,
+                                sender_user_id, content_type, content_text,
+                                external_id, sent_at, raw_payload
+                            ) VALUES ($1, $2, 'outbound', 'agent', $3, 'text',
+                                      $4, $5, $6, $7::jsonb)
+                            """,
+                            tenant_id, conv_id, random.choice(agent_ids),
+                            random.choice(AGENT_REPLIES),
+                            f"seed_{msg_seq:05d}", reply_at,
+                            '{"source": "seed_sample"}',
+                        )
 
             await conn.execute(
                 "UPDATE conversations SET last_message_at = (SELECT MAX(sent_at) FROM messages WHERE conversation_id = $1) WHERE id = $1",
