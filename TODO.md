@@ -26,7 +26,7 @@ Actualizar al final de cada sesión.
 ### Hacer la app interactiva
 - [x] ~~Modal "+ Agregar sujeto" en `/segmentos`~~ — hecho 2026-06-03.
 - [x] ~~Editar / pausar / eliminar segmentos desde la card~~ — hecho 2026-06-03 (kebab menu + confirm modal).
-- [ ] **Competitor activity panel en `/overview`** — top 3-5 competidores por delta semanal de menciones (estructurado, no narrativo). Necesita endpoint que agregue `mentions` por `tracked_subject` con período comparable. Razón: hoy los competidores sólo aparecen como número crudo en `/segmentos` o mencionados en memos; falta una vista de un vistazo en el dashboard principal.
+- [x] ~~**Competitor activity panel en `/overview`**~~ — hecho 2026-06-03 (Saul: `GET /dashboard/competitor-activity` + grid de top competidores con delta semanal en el dashboard).
 - [x] ~~**Drill-down de competidor** en `/segmentos`~~ — hecho 2026-06-03 (Saul: drawer con menciones, sentiment, top contactos · backend `GET /tracked-subjects/{id}/detail`).
 - [x] ~~Toggles de módulos en `/canales`~~ — hecho 2026-06-03 (Saul: `PATCH /channels/{key}` + toggles funcionales).
 - [ ] Botón "Conectar canal" en `/canales` — abre flujo OAuth real (bloqueado por App Review de Meta).
