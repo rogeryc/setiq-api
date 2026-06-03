@@ -15,8 +15,8 @@ Actualizar al final de cada sesión.
 - [~] `/ajustes` — UI estática con todas las secciones que vamos a editar (Plan/Módulos, Identidad, Contexto IA *diferido*, Política de IA, Etiquetas de canales, Facturación *diferido*, Webhooks *diferido*, Privacidad *diferido*). Falta backend `PATCH /tenants/me/settings` + `/modules` para hacerlo editable. (UI hecha 2026-05-20)
 
 ### Hacer la app interactiva
-- [ ] Modal "+ Agregar sujeto" en `/segmentos` (POST `/tracked-subjects` ya existe).
-- [ ] Editar / pausar / eliminar segmentos desde la card (PATCH y DELETE ya existen en backend).
+- [x] ~~Modal "+ Agregar sujeto" en `/segmentos`~~ — hecho 2026-06-03.
+- [x] ~~Editar / pausar / eliminar segmentos desde la card~~ — hecho 2026-06-03 (kebab menu + confirm modal).
 - [ ] **Competitor activity panel en `/overview`** — top 3-5 competidores por delta semanal de menciones (estructurado, no narrativo). Necesita endpoint que agregue `mentions` por `tracked_subject` con período comparable. Razón: hoy los competidores sólo aparecen como número crudo en `/segmentos` o mencionados en memos; falta una vista de un vistazo en el dashboard principal.
 - [ ] **Drill-down de competidor** en `/segmentos` — click en un sujeto de tipo `competitor` abre una vista con: menciones recientes, breakdown de sentiment, top contactos que interactúan con nosotros Y con el competidor (overlap de audiencia). Necesita endpoint `GET /tracked-subjects/{id}/detail` + cruce con `contacts`/`interactions`.
 - [ ] Toggles de módulos en `/canales` (Core / Kaizen por canal) — necesita endpoint PATCH `/channels/{key}`.
