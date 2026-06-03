@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     jwt_expires_minutes: int = 60 * 8           # standard session = working day
     jwt_remember_me_minutes: int = 60 * 24 * 30  # "Recordarme" = 30 days
 
-    # Meta webhook
+    # Meta App credentials (developers.facebook.com)
+    meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_webhook_verify_token: str = "dev_only_change_me"
 
