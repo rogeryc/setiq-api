@@ -8,6 +8,28 @@ from setiq.auth.dependencies import CurrentUser, get_tenant_db, require_admin
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
 
+@router.get("/me")
+async def get_me(
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> dict[str, Any]:
+    row = await conn.fetchrow(
+        """
+        SELECT id, slug, name, modules, settings
+        FROM tenants
+        WHERE id = current_tenant_id()
+        """
+    )
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tenant not found")
+    return {
+        "id": str(row["id"]),
+        "slug": row["slug"],
+        "name": row["name"],
+        "modules": row["modules"],
+        "settings": row["settings"],
+    }
+
+
 @router.patch("/me/settings")
 async def patch_settings(
     patch: dict[str, Any] = Body(...),
