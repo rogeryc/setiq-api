@@ -149,6 +149,15 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
         "Una de las mejores notas que leí este mes",
         "Gracias por meterte en este tema, hacía falta",
         "Te seguís ganando mi suscripción, una grosa",
+        "Brutal el laburo de investigación, se nota cada hora",
+        "Compartí esto en mi grupo, todos lo leyeron",
+        "Por fin alguien que se anima a hablar del tema",
+        "Necesitamos más periodismo así, fundamental",
+        "Me hiciste cambiar de opinión, gracias por el laburo",
+        "Pieza imprescindible, ya la mandé a 3 amigos",
+        "Gracias por nombrar a la gente correcta",
+        "El detalle del bloque 4 me voló la cabeza",
+        "Es de las pocas notas que vale la pena leer entera",
     ],
     ("complaint", "negative"): [
         "Dejaste afuera el costo real fuera del eje troncal.",
@@ -157,6 +166,15 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
         "Sesgada hacia un solo lado, me decepcionó la nota",
         "Faltó la voz de quien alquila hace 5 años, no de un experto",
         "Esto es opinión disfrazada de investigación.",
+        "Te falta hablar con gente de El Alto, no solo La Paz centro",
+        "Datos viejos, eso ya cambió hace 6 meses",
+        "Repetís lo que dice el gobierno sin chequear",
+        "Te creía mejor que esto, qué decepción",
+        "Ningún dato concreto, mucha generalización",
+        "Sin contrastar fuentes ni una vez, ¿en serio?",
+        "Generalizás de una manera que ofende a quien vive el tema",
+        "Esto se publica sin chequeo editorial?",
+        "El título no se corresponde con el contenido, clickbait",
     ],
     ("question", "neutral"): [
         "Cuándo publicás la siguiente parte?",
@@ -164,27 +182,54 @@ TEMPLATES: dict[tuple[str, str], list[str]] = {
         "Saldrá nota sobre vivienda en El Alto también?",
         "Hay versión en podcast de esta nota?",
         "Quién es la fuente del párrafo 3?",
+        "Vas a hacer un seguimiento mensual del indicador?",
+        "Hay algún paper académico detrás de estos números?",
+        "Dónde puedo leer el informe original que citás?",
+        "Tenés contacto del experto que entrevistaste?",
+        "Sale versión imprimible para llevar a la reunión?",
+        "Estaría bueno una versión más corta para compartir",
+        "Cuándo es el próximo en vivo?",
+        "Pensás hacer una nota similar pero sobre Sucre?",
+        "Cuánto demora el reembolso del newsletter?",
     ],
     ("purchase_intent", "positive"): [
         "Cómo me suscribo al newsletter? Quiero pagar",
         "Pasame el link para apoyarte, me interesa",
         "Hay plan anual? Me sumo al pago",
         "Si hacés una serie completa pago entrada",
+        "Aceptás pago con QR? Quiero suscribirme ya",
+        "Tenés plan para empresas? Mi oficina quiere comprar 8 licencias",
+        "Cuánto sale el paquete del año entero?",
+        "Me sumo al pago, dónde firmo?",
+        "Si abrís Patreon me sumo de una",
+        "Si publicás un libro lo compro hoy mismo",
     ],
     ("support_request", "neutral"): [
         "No me llegó el último newsletter, podés revisar?",
         "El link al PDF está roto",
         "La app no me deja loguear desde ayer",
         "Cómo cambio el correo de la suscripción?",
+        "Pagué pero no se actualiza mi cuenta",
+        "Cómo descargo los números viejos del newsletter?",
+        "Me llegó dos veces el mismo email, ¿es normal?",
+        "Quiero cancelar mi suscripción, no encuentro cómo",
+        "¿Reenviás un newsletter de la semana pasada?",
+        "Cuál es el correo de soporte por favor",
     ],
     ("spam", "neutral"): [
         "🔥🔥🔥 visitanos en bit.ly/xxxx",
         "Gana 5.000 Bs por día desde casa - DM",
         "Hola hermosa, te escribo por DM",
+        "PROMO LIMITADA - solo hoy click acá",
+        "Trabajo remoto sin experiencia, 800$ semanal",
+        "Inversión cripto garantizada, escribime privado",
     ],
     ("praise", "neutral"): [
         "Buena nota, interesante el ángulo",
         "Coincido con casi todo, lo voy a compartir",
+        "Está bien pero esperaba un poco más",
+        "El gráfico final está muy bien hecho",
+        "Útil para entender el contexto general",
     ],
 }
 
@@ -420,6 +465,60 @@ MENTIONS: list[dict[str, Any]] = [
      "author_handle": "@medianalisis", "author_name": "MediaAnálisis",
      "text": "Estudio: newsletters independientes como thalma crecen 40% en 2026",
      "sentiment": "positive", "intent": "other"},
+    # Extra competitor + brand entries — gives the activity panel and
+    # drill-down real density per subject for the demo.
+    {"platform": "tiktok", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "Lo que pasó esta semana con el dólar paralelo, en 90 segundos",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "tiktok", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "El gobierno no quiere que sepas esto del nuevo decreto",
+     "sentiment": "negative", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "Diego Penna",
+     "author_handle": "@dpenna", "author_name": "Diego Penna",
+     "text": "Reels: los 5 datos que no te contaron sobre el ajuste",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "Nuevo episodio del podcast: ¿qué pasó con la deuda soberana?",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "Hilo: cómo se reparte el presupuesto departamental este año",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "tiktok", "kind": "post", "subject_label": "Soledad Murillo",
+     "author_handle": "@solemurillo", "author_name": "Soledad Murillo",
+     "text": "El detalle del proyecto que aprobaron ayer, en 60 segundos",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "facebook", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "latrinchera", "author_name": "La Trinchera",
+     "text": "Editorial de la semana: el rol de las redes en la polarización",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "@latrinchera.news", "author_name": "La Trinchera",
+     "text": "Lectura del domingo: ¿hay alternativa al modelo extractivo?",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "web", "kind": "post", "subject_label": "La Trinchera (newsletter)",
+     "author_handle": "latrinchera", "author_name": "La Trinchera",
+     "text": "Nuevo número: entrevista con economistas heterodoxos",
+     "sentiment": "neutral", "intent": "other"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@lulaarce", "author_name": "Lula Arce",
+     "text": "@thalma tu nota me hizo cancelar mi suscripción a un medio rancio",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "tiktok", "kind": "mention", "subject_label": "Thalma (marca propia)",
+     "author_handle": "@manudz", "author_name": "Manu",
+     "text": "Le mostré la nota de thalma a mi mamá y ahora ella también la sigue",
+     "sentiment": "positive", "intent": "praise"},
+    {"platform": "instagram", "kind": "mention", "subject_label": "Vivienda / alquileres",
+     "author_handle": "@cristinapotosi", "author_name": "Cristina P.",
+     "text": "En Potosí tampoco hay viviendas accesibles, ¿quién investiga?",
+     "sentiment": "negative", "intent": "complaint"},
+    {"platform": "facebook", "kind": "mention", "subject_label": "Política departamental",
+     "author_handle": "luismvelasco", "author_name": "Luis Velasco",
+     "text": "Tarija sigue sin recursos suficientes — ya nadie habla del tema",
+     "sentiment": "negative", "intent": "complaint"},
 ]
 
 
@@ -706,7 +805,17 @@ async def _insert_mentions(conn: asyncpg.Connection, tenant_id: UUID) -> None:
 
     for idx, m in enumerate(MENTIONS):
         sub_id = subject_by_label.get(m["subject_label"])
-        published = NOW - timedelta(days=random.randint(1, 30), hours=random.randint(0, 23))
+        # ~60% in the last 7 days, ~30% in the prior week, ~10% older.
+        # Gives the competitor activity panel + drill-down real data to show
+        # for a 7-day window, plus enough history for the WoW delta to vary.
+        bucket = random.random()
+        if bucket < 0.6:
+            days_ago = random.randint(0, 6)
+        elif bucket < 0.9:
+            days_ago = random.randint(7, 13)
+        else:
+            days_ago = random.randint(14, 30)
+        published = NOW - timedelta(days=days_ago, hours=random.randint(0, 23))
         mention_id = await conn.fetchval(
             """
             INSERT INTO mentions (
@@ -965,6 +1074,88 @@ INSIGHTS_SEED: list[dict[str, Any]] = [
         ),
         "footnote": "Idea: serie 'cómo cubrir X'",
         "actions": [{"label": "Crear segmento"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 10,
+        "severity": "med",
+        "tag": "Memo 11 · Competencia",
+        "confidence": "Confianza 79%",
+        "title": "Diego Penna está acelerando",
+        "title_em": "+52% en menciones",
+        "body": (
+            "El competidor con mayor crecimiento esta semana es Diego Penna. "
+            "Su línea editorial en TikTok se solapa con la tuya en alquileres "
+            "y dólar paralelo. Vale la pena revisar qué formatos están funcionando."
+        ),
+        "footnote": "Mirar /segmentos para detalle.",
+        "actions": [{"label": "Abrir competidor", "route": "/segmentos"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 11,
+        "severity": "high",
+        "tag": "Memo 12 · Crisis temprana",
+        "confidence": "Confianza 87%",
+        "title": "Pico de quejas con",
+        "title_em": "tono coordinado",
+        "body": (
+            "12 comentarios negativos en 4 horas usando frases muy similares en "
+            "la nota de Santa Cruz — patrón compatible con una campaña organizada. "
+            "Aún no escaló a Twitter. Si respondés en las próximas 6h, la "
+            "probabilidad de que muera ahí es ~70%."
+        ),
+        "footnote": "Ver hilo completo en /inbox.",
+        "actions": [{"label": "Abrir hilo", "route": "/inbox", "variant": "acc"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 12,
+        "severity": "low",
+        "tag": "Memo 13 · Performance",
+        "confidence": "Confianza 74%",
+        "title": "Mejor horario de respuesta:",
+        "title_em": "18:00-21:00 La Paz",
+        "body": (
+            "Cuando respondés DMs en ese rango, la tasa de conversación que "
+            "termina en suscripción es 2.4× más alta que el resto del día. "
+            "Sugerencia: bloquear una ventana fija para esto."
+        ),
+        "footnote": "Métrica calculada sobre últimos 30 días.",
+        "actions": [],
+    },
+    {
+        "kind": "memo",
+        "rank": 13,
+        "severity": "med",
+        "tag": "Memo 14 · Oportunidad",
+        "confidence": "Confianza 83%",
+        "title": "Hilo viral en X menciona",
+        "title_em": "a Thalma como referencia",
+        "body": (
+            "Un hilo de 1.2k retuits sobre alquileres en El Alto cita la nota "
+            "tuya del mes pasado como fuente. 38 cuentas nuevas siguieron en "
+            "las primeras 6 horas. Probable bump sostenido si publicás algo "
+            "complementario esta semana."
+        ),
+        "footnote": "Considerar una nota corta de seguimiento.",
+        "actions": [{"label": "Crear borrador", "variant": "ghost"}],
+    },
+    {
+        "kind": "memo",
+        "rank": 14,
+        "severity": "low",
+        "tag": "Memo 15 · Inbox health",
+        "confidence": "Confianza 91%",
+        "title": "Tiempo medio de respuesta",
+        "title_em": "subió a 4h 12m",
+        "body": (
+            "Hace 30 días estabas en 2h 50m. La mitad del aumento viene de "
+            "conversaciones de DM que esperan tu respuesta personal. "
+            "Plantillas de soporte cubrirían 6 de los 10 tipos más frecuentes."
+        ),
+        "footnote": "Detalle: KPI 'TMR · Kaizen' en /overview.",
+        "actions": [{"label": "Ver inbox", "route": "/inbox"}],
     },
 ]
 
