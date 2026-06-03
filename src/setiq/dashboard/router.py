@@ -163,6 +163,14 @@ async def overview(
     tmr_prev = await _compute_tmr_minutes(conn, fourteen_days_ago, seven_days_ago)
     tmr_kpi = _build_tmr_kpi(tmr_minutes, tmr_prev)
 
+    # Backlog trend for "Sin resolver" — uses a message-direction heuristic
+    # since we don't track conversation-status history. Returns the count
+    # of conversations whose most-recent message as of the cutoff was
+    # inbound (= waiting on us).
+    backlog_now = await _compute_backlog_at(conn, None)
+    backlog_prev = await _compute_backlog_at(conn, seven_days_ago)
+    backlog_delta = _build_backlog_delta(backlog_now, backlog_prev, high_priority)
+
     kpis = [
         OverviewKpi(
             label="Interacciones",
@@ -181,8 +189,8 @@ async def overview(
         OverviewKpi(
             label="Sin resolver",
             value=str(unresolved),
-            delta=KpiDelta(label=f"{high_priority} altas", tone="warn") if high_priority else None,
-            sub="prioridad de servicio",
+            delta=backlog_delta,
+            sub=f"{high_priority} de alta prioridad" if high_priority else "prioridad de servicio",
         ),
         tmr_kpi,
     ]
@@ -311,6 +319,63 @@ async def competitor_activity(
         competitors=competitors,
         generated_at=now,
     )
+
+
+async def _compute_backlog_at(
+    conn: asyncpg.Connection,
+    cutoff: datetime | None,
+) -> int:
+    """Count conversations whose most recent message at `cutoff` was inbound.
+
+    Approximates the unresolved-conversation backlog without a status
+    history table. When `cutoff` is None, returns the current backlog
+    (using ALL messages). When it's a timestamp, considers only messages
+    sent at-or-before that point.
+    """
+    if cutoff is None:
+        query = """
+            SELECT COUNT(*) FROM (
+                SELECT DISTINCT ON (m.conversation_id) m.direction
+                FROM messages m
+                ORDER BY m.conversation_id, m.sent_at DESC
+            ) latest
+            WHERE direction = 'inbound'
+        """
+        return int(await conn.fetchval(query) or 0)
+
+    query = """
+        SELECT COUNT(*) FROM (
+            SELECT DISTINCT ON (m.conversation_id) m.direction
+            FROM messages m
+            WHERE m.sent_at <= $1
+            ORDER BY m.conversation_id, m.sent_at DESC
+        ) latest
+        WHERE direction = 'inbound'
+    """
+    return int(await conn.fetchval(query, cutoff) or 0)
+
+
+def _build_backlog_delta(
+    current: int,
+    previous: int,
+    high_priority: int,
+) -> KpiDelta | None:
+    """Render the WoW delta pill for the 'Sin resolver' KPI.
+
+    `previous` is the backlog 7d ago (same heuristic as current). When the
+    change is small (< 3), defaults to surfacing the high-priority count
+    (if any) so the card doesn't look empty.
+    """
+    change = current - previous
+    if abs(change) >= 3:
+        sign = "↑" if change > 0 else "↓"
+        return KpiDelta(
+            label=f"{sign} {abs(change)} vs semana previa",
+            tone="warn" if change > 0 else "pos",
+        )
+    if high_priority > 0:
+        return KpiDelta(label=f"{high_priority} altas activas", tone="warn")
+    return None
 
 
 async def _compute_tmr_minutes(
