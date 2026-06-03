@@ -3,7 +3,7 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-06-03 (+TMR real con outbound seed, panel competidores enriquecido, filtros inbox, empty-state share)
+**Última actualización:** 2026-06-03 (+TMR real + Sin resolver delta real, panel competidores enriquecido, filtros inbox, empty-state share)
 
 ---
 
@@ -75,7 +75,7 @@ Actualizar al final de cada sesión.
 - [ ] Tabla `connected_channels` real (con tokens, last_sync_at, token_expires_at) — hoy se deriva de `tenants.settings`. Funciona para demo, no escala.
 - [ ] Plantillas semilla más diversas (alineado con el punto del frontend).
 - [x] ~~TMR · Kaizen real~~ — hecho 2026-06-03 (LATERAL join sobre messages, WoW delta cuando hay cambio ≥ 1m; seed agrega outbound agent replies en ~60% de inbounds).
-- [ ] Deltas reales para **Sin resolver** — sigue mostrando "X altas" en vez de "vs semana previa". Necesita comparar `unresolved` count actual vs el del cierre de semana previa (snapshot o query con `created_at` adicional).
+- [x] ~~Sin resolver — delta WoW real~~ — hecho 2026-06-03 (backlog actual vs hace 7d con heurística "último mensaje inbound"; `X altas` se movió a sub).
 
 ### Calidad
 - [x] ~~Tests de integración para los endpoints~~ — hecho 2026-06-03 (Saul: suite de integración para auth/tenants/conversations/tracked-subjects).
