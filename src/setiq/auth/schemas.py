@@ -10,6 +10,10 @@ class LoginRequest(BaseModel):
     remember_me: bool = False
 
 
+class SwitchTenantRequest(BaseModel):
+    tenant_id: UUID
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -23,6 +27,14 @@ class TenantInfo(BaseModel):
     modules: dict[str, Any]
 
 
+class TenantMembership(BaseModel):
+    """Lightweight version for the dropdown — no modules payload."""
+    id: UUID
+    slug: str
+    name: str
+    role: str
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str
@@ -30,3 +42,4 @@ class UserResponse(BaseModel):
     initials: str
     role: str
     tenant: TenantInfo
+    available_tenants: list[TenantMembership]

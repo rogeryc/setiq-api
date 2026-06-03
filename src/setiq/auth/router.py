@@ -5,7 +5,14 @@ from setiq.auth import revocation
 from setiq.auth.dependencies import CurrentUser, get_current_user
 from setiq.auth.jwt import issue_token
 from setiq.auth.passwords import verify_password
-from setiq.auth.schemas import LoginRequest, TenantInfo, TokenResponse, UserResponse
+from setiq.auth.schemas import (
+    LoginRequest,
+    SwitchTenantRequest,
+    TenantInfo,
+    TenantMembership,
+    TokenResponse,
+    UserResponse,
+)
 from setiq.config import settings
 
 
@@ -59,6 +66,46 @@ async def logout(current_user: CurrentUser = Depends(get_current_user)) -> Respo
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post("/switch-tenant", response_model=TokenResponse)
+async def switch_tenant(
+    req: SwitchTenantRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> TokenResponse:
+    """Reissue a JWT scoped to a different tenant the user already belongs to.
+
+    Caller must already have a `tenant_users` row for the requested tenant.
+    The new token preserves the `remember` flag (so a long-lived session
+    stays long-lived after switching).
+    """
+    async with db.acquire() as conn:
+        membership = await conn.fetchrow(
+            """
+            SELECT role FROM tenant_users
+            WHERE user_id = $1 AND tenant_id = $2
+            """,
+            current_user.user_id,
+            req.tenant_id,
+        )
+    if membership is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "User is not a member of that tenant"
+        )
+
+    ttl_minutes = (
+        settings.jwt_remember_me_minutes
+        if current_user.remember
+        else settings.jwt_expires_minutes
+    )
+    token = issue_token(
+        user_id=current_user.user_id,
+        tenant_id=req.tenant_id,
+        role=membership["role"],
+        expires_in_minutes=ttl_minutes,
+        remember=current_user.remember,
+    )
+    return TokenResponse(access_token=token, expires_in_minutes=ttl_minutes)
+
+
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(current_user: CurrentUser = Depends(get_current_user)) -> TokenResponse:
     ttl_minutes = (
@@ -91,8 +138,20 @@ async def me(current_user: CurrentUser = Depends(get_current_user)) -> UserRespo
             current_user.user_id,
             current_user.tenant_id,
         )
-    if row is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+        if row is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+        # All tenants this user has memberships in — feeds the masthead switcher.
+        membership_rows = await conn.fetch(
+            """
+            SELECT t.id, t.slug, t.name, tu.role
+            FROM tenant_users tu
+            JOIN tenants t ON t.id = tu.tenant_id
+            WHERE tu.user_id = $1
+            ORDER BY t.name
+            """,
+            current_user.user_id,
+        )
+
     return UserResponse(
         id=row["id"],
         email=row["email"],
@@ -105,4 +164,13 @@ async def me(current_user: CurrentUser = Depends(get_current_user)) -> UserRespo
             name=row["tenant_name"],
             modules=row["tenant_modules"],
         ),
+        available_tenants=[
+            TenantMembership(
+                id=m["id"],
+                slug=m["slug"],
+                name=m["name"],
+                role=m["role"],
+            )
+            for m in membership_rows
+        ],
     )
