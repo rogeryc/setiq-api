@@ -116,6 +116,21 @@ class MetaClient:
             },
         )
 
+    # -------------------------------------------------------- User identity
+
+    async def get_me_id(self, user_token: str) -> str:
+        """Returns the FB user ID for the holder of this token. Used during
+        OAuth to record who connected each page (so a deauth callback knows
+        which pages to clean up).
+        """
+        body = await self._request(
+            "GET",
+            "/me",
+            params={"fields": "id"},
+            token=user_token,
+        )
+        return str(body["id"])
+
     # -------------------------------------------------------- Page discovery
 
     async def list_user_pages(self, user_long_token: str) -> list[dict[str, Any]]:
@@ -231,3 +246,51 @@ def _json_string(s: str) -> str:
     take stringified JSON for the `message` and `recipient` body params)."""
     import json
     return json.dumps(s, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# signed_request — used by Meta's deauthorize + data-deletion callbacks.
+# Format: <base64url(hmac_sha256_signature)>.<base64url(payload_json)>
+# We verify the signature with our App Secret before trusting the payload.
+# Docs: https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow/#parsingsr
+# ---------------------------------------------------------------------------
+
+class SignedRequestError(ValueError):
+    """Raised when the signed_request from Meta is malformed or has a bad signature."""
+
+
+def parse_signed_request(signed_request: str, app_secret: str) -> dict[str, Any]:
+    """Verify and decode Meta's signed_request format.
+
+    Returns the decoded JSON payload (typically contains user_id, algorithm,
+    issued_at). Raises SignedRequestError if the format is wrong or the
+    signature doesn't match.
+    """
+    import base64
+    import hashlib
+    import hmac as _hmac
+    import json
+
+    try:
+        encoded_sig, payload = signed_request.split(".", 1)
+    except ValueError as e:
+        raise SignedRequestError("signed_request must be '<sig>.<payload>'") from e
+
+    # base64url with no padding — Meta strips it
+    def _pad(s: str) -> bytes:
+        return (s + "=" * (-len(s) % 4)).encode()
+
+    try:
+        sig = base64.urlsafe_b64decode(_pad(encoded_sig))
+        data = json.loads(base64.urlsafe_b64decode(_pad(payload)))
+    except (ValueError, json.JSONDecodeError) as e:
+        raise SignedRequestError(f"failed to decode: {e}") from e
+
+    if data.get("algorithm", "").upper() != "HMAC-SHA256":
+        raise SignedRequestError(f"unexpected algorithm: {data.get('algorithm')}")
+
+    expected = _hmac.new(app_secret.encode(), payload.encode(), hashlib.sha256).digest()
+    if not _hmac.compare_digest(sig, expected):
+        raise SignedRequestError("signature mismatch")
+
+    return data

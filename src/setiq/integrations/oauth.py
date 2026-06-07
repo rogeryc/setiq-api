@@ -30,14 +30,19 @@ from urllib.parse import urlencode
 from uuid import UUID
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from setiq import db
 from setiq.auth.dependencies import CurrentUser, require_admin
 from setiq.config import settings
-from setiq.integrations.meta import MetaApiError, MetaClient
+from setiq.integrations.meta import (
+    MetaApiError,
+    MetaClient,
+    SignedRequestError,
+    parse_signed_request,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +157,10 @@ async def callback(
         )
         # Step 2: → long-lived user token (~60d)
         long = await client.exchange_short_for_long_user_token(short["access_token"])
-        # Step 3: list pages the user manages — each row has a non-expiring page token
+        # Step 3: identify the connecting FB user (so a future deauth callback
+        # knows which pages to clean up).
+        fb_user_id = await client.get_me_id(long["access_token"])
+        # Step 4: list pages the user manages — each row has a non-expiring page token
         pages = await client.list_user_pages(long["access_token"])
     except MetaApiError as e:
         logger.warning("Meta OAuth exchange failed: %s", e)
@@ -183,6 +191,7 @@ async def callback(
             "category": p.get("category"),
             "page_token": page_token,  # secret — see security note below
             "instagram_business_account": ig_info,
+            "connected_by_user_id": fb_user_id,
         })
 
     # Persist into tenants.settings.meta.connected_pages — JSONB merge.
@@ -191,12 +200,14 @@ async def callback(
     # connected_channels table with encryption-at-rest (TODO item).
     patch = {"meta": {"connected_pages": connected}}
     async with db.acquire() as conn:
+        # Pool registers a JSONB codec, so dicts are auto-encoded; no manual
+        # json.dumps (would double-encode).
         await conn.execute(
             """
             UPDATE tenants SET settings = settings || $1::jsonb, updated_at = NOW()
             WHERE id = $2
             """,
-            json.dumps(patch),
+            patch,
             UUID(tenant_id),
         )
 
@@ -204,6 +215,83 @@ async def callback(
         f"{front}/canales?meta_connected={len(connected)}",
         status_code=302,
     )
+
+
+@router.post("/deauthorize")
+async def deauthorize(
+    signed_request: str = Form(...),
+) -> dict[str, str]:
+    """PUBLIC — Meta POSTs here when a user revokes the SETIQ app from
+    their Facebook account (Settings → Apps and websites → SETIQ → Remove).
+
+    We verify the signed_request (HMAC-SHA256 with our App Secret),
+    extract the FB user_id, and remove any pages that user authorized
+    from `tenants.settings.meta.connected_pages` (matched via the
+    `connected_by_user_id` we recorded during OAuth).
+
+    Response shape matches what Meta expects on the Data Deletion /
+    Deauthorize Callback: { url, confirmation_code }.
+    """
+    try:
+        payload = parse_signed_request(signed_request, settings.meta_app_secret)
+    except SignedRequestError as e:
+        logger.warning("deauthorize: invalid signed_request: %s", e)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    fb_user_id = str(payload.get("user_id", ""))
+    if not fb_user_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "missing user_id in payload")
+
+    removed_pages: list[str] = []
+    affected_tenants: list[UUID] = []
+
+    async with db.acquire() as conn:
+        # Find every tenant whose connected_pages array has a page authorized
+        # by this FB user. The tenant count is small (< 100 for foreseeable
+        # future), so plain iteration is simpler than a JSONB path query.
+        rows = await conn.fetch(
+            """
+            SELECT id, settings
+            FROM tenants
+            WHERE settings -> 'meta' -> 'connected_pages' IS NOT NULL
+            """
+        )
+        for row in rows:
+            raw_settings = row["settings"]
+            current_settings = (
+                raw_settings if isinstance(raw_settings, dict)
+                else json.loads(raw_settings or "{}")
+            )
+            meta_block = current_settings.get("meta", {}) or {}
+            pages = meta_block.get("connected_pages") or []
+            kept = [p for p in pages if p.get("connected_by_user_id") != fb_user_id]
+            if len(kept) == len(pages):
+                continue
+            for p in pages:
+                if p.get("connected_by_user_id") == fb_user_id:
+                    removed_pages.append(p.get("page_id", "?"))
+            new_meta = {**meta_block, "connected_pages": kept}
+            await conn.execute(
+                "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), updated_at = NOW() WHERE id = $2",
+                new_meta,
+                row["id"],
+            )
+            affected_tenants.append(row["id"])
+
+    logger.info(
+        "deauthorize: fb_user_id=%s removed %d pages across %d tenant(s)",
+        fb_user_id, len(removed_pages), len(affected_tenants),
+    )
+
+    # Meta expects a stable identifier so the user can later check status.
+    # We return the FB user_id (stable, opaque) — sufficient since we don't
+    # offer a status-check page yet.
+    confirmation_code = f"deauth_{fb_user_id}_{secrets.token_hex(4)}"
+    front = settings.web_origin.rstrip("/")
+    return {
+        "url": f"{front}/assets/legal/data-deletion.html",
+        "confirmation_code": confirmation_code,
+    }
 
 
 @router.post("/disconnect", status_code=status.HTTP_204_NO_CONTENT)
@@ -231,7 +319,7 @@ async def disconnect(
         new_meta = {**meta_block, "connected_pages": new_pages}
         await raw.execute(
             "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), updated_at = NOW() WHERE id = $2",
-            json.dumps(new_meta),
+            new_meta,
             current_user.tenant_id,
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
