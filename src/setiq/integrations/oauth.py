@@ -43,6 +43,7 @@ from setiq.integrations.meta import (
     SignedRequestError,
     parse_signed_request,
 )
+from setiq.integrations.secrets import encrypt_token
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +190,8 @@ async def callback(
             "page_id": page_id,
             "page_name": p.get("name"),
             "category": p.get("category"),
-            "page_token": page_token,  # secret — see security note below
+            # Stored encrypted via Fernet; decrypt at use site (Graph calls).
+            "page_token": encrypt_token(page_token),
             "instagram_business_account": ig_info,
             "connected_by_user_id": fb_user_id,
         })
@@ -217,38 +219,19 @@ async def callback(
     )
 
 
-@router.post("/deauthorize")
-async def deauthorize(
-    signed_request: str = Form(...),
-) -> dict[str, str]:
-    """PUBLIC — Meta POSTs here when a user revokes the SETIQ app from
-    their Facebook account (Settings → Apps and websites → SETIQ → Remove).
+async def _purge_user_pages(fb_user_id: str) -> tuple[list[str], list[UUID]]:
+    """Strip all connected_pages authorized by this FB user across every tenant.
 
-    We verify the signed_request (HMAC-SHA256 with our App Secret),
-    extract the FB user_id, and remove any pages that user authorized
-    from `tenants.settings.meta.connected_pages` (matched via the
-    `connected_by_user_id` we recorded during OAuth).
-
-    Response shape matches what Meta expects on the Data Deletion /
-    Deauthorize Callback: { url, confirmation_code }.
+    Returns (removed_page_ids, affected_tenant_ids). Used by both the
+    deauthorize and data-deletion-callback endpoints — the same removal
+    behavior applies.
     """
-    try:
-        payload = parse_signed_request(signed_request, settings.meta_app_secret)
-    except SignedRequestError as e:
-        logger.warning("deauthorize: invalid signed_request: %s", e)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-    fb_user_id = str(payload.get("user_id", ""))
-    if not fb_user_id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "missing user_id in payload")
-
     removed_pages: list[str] = []
     affected_tenants: list[UUID] = []
 
     async with db.acquire() as conn:
-        # Find every tenant whose connected_pages array has a page authorized
-        # by this FB user. The tenant count is small (< 100 for foreseeable
-        # future), so plain iteration is simpler than a JSONB path query.
+        # Tenant count is small (< 100 foreseeable). Plain iteration is
+        # simpler than a JSONB path query and lets us log granularly.
         rows = await conn.fetch(
             """
             SELECT id, settings
@@ -278,20 +261,80 @@ async def deauthorize(
             )
             affected_tenants.append(row["id"])
 
-    logger.info(
-        "deauthorize: fb_user_id=%s removed %d pages across %d tenant(s)",
-        fb_user_id, len(removed_pages), len(affected_tenants),
-    )
+    return removed_pages, affected_tenants
 
-    # Meta expects a stable identifier so the user can later check status.
-    # We return the FB user_id (stable, opaque) — sufficient since we don't
-    # offer a status-check page yet.
-    confirmation_code = f"deauth_{fb_user_id}_{secrets.token_hex(4)}"
+
+def _callback_response(kind: str, fb_user_id: str) -> dict[str, str]:
+    """Standard {url, confirmation_code} envelope Meta expects on both
+    callback URLs. `kind` is a prefix for the confirmation code so we can
+    distinguish deauthorize vs deletion in support tickets."""
+    code = f"{kind}_{fb_user_id}_{secrets.token_hex(4)}"
     front = settings.web_origin.rstrip("/")
     return {
         "url": f"{front}/assets/legal/data-deletion.html",
-        "confirmation_code": confirmation_code,
+        "confirmation_code": code,
     }
+
+
+def _user_id_from_signed_request(signed_request: str) -> str:
+    """Verify Meta's signed_request and extract the FB user_id. Raises
+    HTTPException(400) on any failure."""
+    try:
+        payload = parse_signed_request(signed_request, settings.meta_app_secret)
+    except SignedRequestError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    fb_user_id = str(payload.get("user_id", ""))
+    if not fb_user_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "missing user_id in payload")
+    return fb_user_id
+
+
+@router.post("/deauthorize")
+async def deauthorize(
+    signed_request: str = Form(...),
+) -> dict[str, str]:
+    """PUBLIC — Meta POSTs here when a user revokes the SETIQ app from
+    their Facebook account (Settings → Apps and websites → SETIQ → Remove).
+
+    Removes any pages the user authorized from
+    `tenants.settings.meta.connected_pages` (matched via the
+    `connected_by_user_id` recorded during OAuth). Historical messages /
+    comments persisted by SETIQ are NOT removed by this endpoint — they
+    belong to the tenant who owns the page; the data-deletion-callback
+    is what handles deletion of user-authored data.
+    """
+    fb_user_id = _user_id_from_signed_request(signed_request)
+    removed, tenants_touched = await _purge_user_pages(fb_user_id)
+    logger.info(
+        "deauthorize: fb_user_id=%s removed %d pages across %d tenant(s)",
+        fb_user_id, len(removed), len(tenants_touched),
+    )
+    return _callback_response("deauth", fb_user_id)
+
+
+@router.post("/data-deletion-callback")
+async def data_deletion_callback(
+    signed_request: str = Form(...),
+) -> dict[str, str]:
+    """PUBLIC — Meta POSTs here when a user explicitly requests deletion of
+    their data via Facebook's privacy controls.
+
+    Today we mirror the deauthorize behavior: remove page tokens the user
+    authorized so SETIQ stops receiving events for those pages. Granular
+    deletion of user-authored content (their comments / DMs within other
+    tenants' inboxes) happens out-of-band via privacy@setiq.bo and the
+    process documented in /assets/legal/data-deletion.html — both for
+    practical reasons (PSIDs in webhook payloads aren't trivially
+    reversible to a FB user_id) and to give a human a chance to verify
+    the request before destructive deletion.
+    """
+    fb_user_id = _user_id_from_signed_request(signed_request)
+    removed, tenants_touched = await _purge_user_pages(fb_user_id)
+    logger.info(
+        "data_deletion: fb_user_id=%s removed %d pages across %d tenant(s)",
+        fb_user_id, len(removed), len(tenants_touched),
+    )
+    return _callback_response("deletion", fb_user_id)
 
 
 @router.post("/disconnect", status_code=status.HTTP_204_NO_CONTENT)

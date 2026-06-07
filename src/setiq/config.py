@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # "Facebook Login for Business → Configuration → Valid OAuth Redirect URIs".
     # In dev: localhost API. In prod: api.setiq.bo public URL.
     meta_oauth_redirect_uri: str = "http://localhost:8000/auth/meta/callback"
+    # Fernet key (32 url-safe base64 bytes) used to encrypt page access
+    # tokens at rest. Generate with: `from cryptography.fernet import Fernet;
+    # Fernet.generate_key().decode()`. Rotating this key invalidates ALL
+    # stored tokens — users would have to re-OAuth.
+    meta_token_encryption_key: str = ""
     # Where the frontend lives — backend bounces the browser back here
     # after handling the callback, so the user lands inside the app.
     web_origin: str = "http://localhost:4200"
