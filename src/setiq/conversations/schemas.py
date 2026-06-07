@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ConversationUpdate(BaseModel):
@@ -62,6 +62,17 @@ class MessageDetail(BaseModel):
     # multiple contacts — i.e. when fetched as a thread).
     sender_name: str | None = None
     sender_handle: str | None = None
+
+
+class ReplyRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class ReplyResponse(BaseModel):
+    """Returned by POST /conversations/{id}/reply when the Meta send succeeds.
+    Contains the persisted outbound message + the Meta-side external id."""
+    message: MessageDetail
+    external_id: str | None = None
 
 
 class ConversationDetail(BaseModel):

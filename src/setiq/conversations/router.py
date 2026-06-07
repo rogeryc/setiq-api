@@ -14,7 +14,10 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from setiq.auth.dependencies import get_tenant_db
+import logging
+
+from setiq.auth.dependencies import CurrentUser, get_current_user, get_tenant_db
+from setiq.config import settings
 from setiq.conversations.schemas import (
     ConversationDetail,
     ConversationGroup,
@@ -23,7 +26,13 @@ from setiq.conversations.schemas import (
     ConversationSummary,
     ConversationUpdate,
     MessageDetail,
+    ReplyRequest,
+    ReplyResponse,
 )
+from setiq.integrations.meta import MetaApiError, MetaClient
+from setiq.integrations.secrets import decrypt_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -494,4 +503,165 @@ async def _get_thread_detail(
             )
             for m in msg_rows
         ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reply — POST /conversations/{id}/reply
+# ---------------------------------------------------------------------------
+
+def _pick_connected_page(settings_obj: dict, channel: str) -> dict | None:
+    """Pick the page that owns this channel.
+
+    MVP heuristic: take the first connected page in the tenant's
+    settings.meta.connected_pages list. Multi-page tenants will need
+    a `received_by_page_id` column on conversations to map back precisely;
+    deferred until we have a tenant with > 1 page.
+    """
+    pages = ((settings_obj or {}).get("meta") or {}).get("connected_pages") or []
+    if not pages:
+        return None
+    # For IG channels, prefer a page that has a linked IG account.
+    if channel.startswith("instagram"):
+        for p in pages:
+            if p.get("instagram_business_account"):
+                return p
+        return None
+    return pages[0]
+
+
+@router.post(
+    "/{conversation_id}/reply",
+    response_model=ReplyResponse,
+    response_model_exclude_none=True,
+)
+async def reply_to_conversation(
+    conversation_id: UUID,
+    body: ReplyRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> ReplyResponse:
+    """Send a reply via Meta and persist it as an outbound message.
+
+    What we do, per channel:
+      - instagram_comment: reply on the comment (POST /{comment_id}/replies)
+      - instagram_dm:      send DM to the contact's IGSID (POST /me/messages)
+      - facebook_comment:  reply on the comment (POST /{comment_id}/comments)
+      - facebook_dm:       send Messenger message to the contact's PSID
+                           (POST /me/messages)
+
+    Other channels (email, tiktok_comment, etc.) aren't wired yet — they
+    return 501 Not Implemented.
+    """
+    # Resolve conversation + its last inbound message (we need the comment_id
+    # for comment replies, or the contact's external_id for DMs).
+    conv = await conn.fetchrow(
+        """
+        SELECT c.id, c.channel, c.status,
+               ci.external_id AS contact_external_id
+        FROM conversations c
+        JOIN channel_identities ci ON ci.id = c.channel_identity_id
+        WHERE c.id = $1
+        """,
+        conversation_id,
+    )
+    if conv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+
+    channel = conv["channel"]
+    if channel not in ("instagram_comment", "instagram_dm", "facebook_comment", "facebook_dm"):
+        raise HTTPException(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            f"Reply not implemented for channel '{channel}' yet",
+        )
+
+    # For comment channels we need the original comment's external_id (the
+    # most recent inbound message in this conversation).
+    last_inbound = await conn.fetchrow(
+        """
+        SELECT id, external_id FROM messages
+        WHERE conversation_id = $1 AND direction = 'inbound'
+        ORDER BY sent_at DESC LIMIT 1
+        """,
+        conversation_id,
+    )
+    if last_inbound is None and channel.endswith("_comment"):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Cannot reply to a comment thread that has no inbound messages",
+        )
+
+    # Find the right page token. RLS already scoped us to the current tenant,
+    # so an unqualified select on tenants returns this tenant's row.
+    tenant_row = await conn.fetchrow(
+        "SELECT settings FROM tenants WHERE id = current_tenant_id()"
+    )
+    if tenant_row is None:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant resolution failed")
+
+    page = _pick_connected_page(tenant_row["settings"] or {}, channel)
+    if page is None:
+        raise HTTPException(
+            status.HTTP_412_PRECONDITION_FAILED,
+            "No Meta page connected for this channel. Connect one in /canales first.",
+        )
+
+    try:
+        page_token = decrypt_token(page["page_token"])
+    except RuntimeError as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+
+    client = MetaClient(settings.meta_app_id, settings.meta_app_secret)
+
+    # Dispatch to the right Graph method.
+    try:
+        if channel == "instagram_comment":
+            result = await client.reply_to_ig_comment(last_inbound["external_id"], body.text, page_token)
+        elif channel == "facebook_comment":
+            result = await client.reply_to_fb_comment(last_inbound["external_id"], body.text, page_token)
+        elif channel == "instagram_dm":
+            result = await client.send_ig_dm(conv["contact_external_id"], body.text, page_token)
+        elif channel == "facebook_dm":
+            result = await client.send_messenger_message(conv["contact_external_id"], body.text, page_token)
+        else:
+            raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, f"channel {channel}")
+    except MetaApiError as e:
+        logger.warning("reply failed: conv=%s channel=%s err=%s", conversation_id, channel, e)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            f"Meta rejected the reply: {e.message}",
+        ) from e
+
+    meta_external_id = result.get("id") or result.get("message_id")
+
+    # Persist the outbound message so the inbox reflects it immediately.
+    msg_row = await conn.fetchrow(
+        """
+        INSERT INTO messages (
+            tenant_id, conversation_id, direction, sender_type,
+            sender_user_id, content_type, content_text,
+            external_id, sent_at, raw_payload
+        ) VALUES (
+            current_tenant_id(), $1, 'outbound', 'agent', $2, 'text', $3, $4,
+            NOW(), '{"source": "operator_reply"}'::jsonb
+        )
+        RETURNING id, direction, sender_type, content_type, content_text, sent_at
+        """,
+        conversation_id, current_user.user_id, body.text, meta_external_id,
+    )
+    await conn.execute(
+        "UPDATE conversations SET last_message_at = NOW() WHERE id = $1",
+        conversation_id,
+    )
+
+    return ReplyResponse(
+        message=MessageDetail(
+            id=msg_row["id"],
+            direction=msg_row["direction"],
+            sender_type=msg_row["sender_type"],
+            content_type=msg_row["content_type"],
+            content_text=msg_row["content_text"],
+            sent_at=msg_row["sent_at"],
+        ),
+        external_id=meta_external_id,
     )
