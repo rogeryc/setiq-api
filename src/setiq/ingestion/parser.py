@@ -90,7 +90,7 @@ async def _process_instagram(conn: asyncpg.Connection, payload: dict[str, Any]) 
             continue
         for change in entry.get("changes", []) or []:
             if change.get("field") == "comments":
-                await _store_ig_comment(conn, tenant_id, change.get("value") or {})
+                await _store_ig_comment(conn, tenant_id, ig_id, change.get("value") or {})
         for event in entry.get("messaging", []) or []:
             await _store_dm(conn, tenant_id, "instagram", "instagram_dm", ig_id, event)
 
@@ -134,7 +134,7 @@ async def _store_dm(
         conn, tenant_id, identity_channel, sender_id, None,
     )
     conv_id = await _upsert_conversation(
-        conn, tenant_id, contact_id, identity_id, conversation_channel, None,
+        conn, tenant_id, contact_id, identity_id, conversation_channel, None, self_id,
     )
     msg_id = await _insert_message(
         conn, tenant_id, conv_id, text, external_id, event,
@@ -162,7 +162,7 @@ async def _store_fb_comment(
         conn, tenant_id, "facebook", sender_id, display_name,
     )
     conv_id = await _upsert_conversation(
-        conn, tenant_id, contact_id, identity_id, "facebook_comment", post_id,
+        conn, tenant_id, contact_id, identity_id, "facebook_comment", post_id, page_id,
     )
     msg_id = await _insert_message(
         conn, tenant_id, conv_id, text, external_id, value,
@@ -219,6 +219,7 @@ async def _upsert_conversation(
     identity_id: UUID,
     channel: str,
     external_thread_id: str | None,
+    received_by_page_id: str | None,
 ) -> UUID:
     row = await conn.fetchrow(
         """
@@ -230,8 +231,13 @@ async def _upsert_conversation(
     )
     if row is not None:
         await conn.execute(
-            "UPDATE conversations SET last_message_at = NOW() WHERE id = $1",
-            row["id"],
+            """
+            UPDATE conversations
+            SET last_message_at = NOW(),
+                received_by_page_id = COALESCE(received_by_page_id, $2)
+            WHERE id = $1
+            """,
+            row["id"], received_by_page_id,
         )
         existing_id: UUID = row["id"]
         return existing_id
@@ -240,11 +246,12 @@ async def _upsert_conversation(
         """
         INSERT INTO conversations (
             tenant_id, contact_id, channel, channel_identity_id,
-            external_thread_id, last_message_at, status
-        ) VALUES ($1, $2, $3, $4, $5, NOW(), 'open')
+            external_thread_id, received_by_page_id, last_message_at, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'open')
         RETURNING id
         """,
         tenant_id, contact_id, channel, identity_id, external_thread_id,
+        received_by_page_id,
     )
     return new_id
 
@@ -276,7 +283,7 @@ async def _insert_message(
 
 
 async def _store_ig_comment(
-    conn: asyncpg.Connection, tenant_id: UUID, value: dict[str, Any]
+    conn: asyncpg.Connection, tenant_id: UUID, ig_id: str, value: dict[str, Any]
 ) -> None:
     sender = value.get("from") or {}
     contact_handle = sender.get("id")
@@ -293,7 +300,7 @@ async def _store_ig_comment(
         conn, tenant_id, "instagram", contact_handle, display_name,
     )
     conv_id = await _upsert_conversation(
-        conn, tenant_id, contact_id, identity_id, "instagram_comment", media_id,
+        conn, tenant_id, contact_id, identity_id, "instagram_comment", media_id, ig_id,
     )
     msg_id = await _insert_message(
         conn, tenant_id, conv_id, text, external_id, value,

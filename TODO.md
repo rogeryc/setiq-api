@@ -104,11 +104,11 @@ Actualizar al final de cada sesión.
 - [ ] Worker Arq de clasificación con Claude. Código listo (`setiq.workers.runner`); bloqueado por `ANTHROPIC_API_KEY` con saldo.
 - [ ] Postmark inbound (email ingestion). Necesita cuenta Postmark + DNS de Thalma.
 - [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado. **(NO CONSIDERAR TODAVÍA — fuera de alcance)**
-- [ ] Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días).
+- [x] ~~Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días)~~ — hecho 2026-06-23 (`cleanup_webhook_events` como `cron_jobs` de Arq, diario 03:00 UTC). Se activa cuando corra el worker (hoy no está deployado).
 
 ### Schema / datos
 - [x] ~~Tabla `connected_channels` real (con tokens, last_sync_at, token_expires_at)~~ — hecho 2026-06-23 (migración `20260623210000_connected_channels.sql` con RLS; OAuth callback inserta ahí, deauthorize/data-deletion borra cross-tenant vía admin pool, disconnect borra scoped, reply lee el token desde la tabla). Los page tokens ya NO viven en `tenants.settings.meta.connected_pages`. `last_sync_at`/`token_expires_at` existen como columnas (aún sin poblar). El display de `/canales` sigue derivando estado demo de `settings.meta.page_ids` (separado, sin cambios).
-- [ ] Soporte multi-página por tenant: hoy `_pick_connected_page` toma la primera página (o la primera con IG link). Para tenants con varias páginas reales falta columna `received_by_page_id` en `conversations` + que el parser la setee + que el reply endpoint la use (`docs/meta_app_setup.md` §8.2).
+- [x] ~~Soporte multi-página por tenant~~ — hecho 2026-06-23 (migración agrega `received_by_page_id` a `conversations`; el parser la setea con el page/IG id que recibió el evento; el reply elige el token exacto en `connected_channels` por `page_id` (FB) o `instagram_business_account->>'id'` (IG), con fallback a la heurística por canal).
 - [ ] Plantillas semilla más diversas (alineado con el punto del frontend).
 - [x] ~~TMR · Kaizen real~~ — hecho 2026-06-03 (LATERAL join sobre messages, WoW delta cuando hay cambio ≥ 1m; seed agrega outbound agent replies en ~60% de inbounds).
 - [x] ~~Sin resolver — delta WoW real~~ — hecho 2026-06-03 (backlog actual vs hace 7d con heurística "último mensaje inbound"; `X altas` se movió a sub).

@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
+from arq import cron
 
 from setiq import db, queue
 from setiq.ai import classifier
@@ -89,6 +90,15 @@ def _conf(v: Any) -> float | None:
         return None
 
 
+async def cleanup_webhook_events(ctx: dict[str, Any]) -> None:
+    """Hard-delete webhook_events older than 30 days. Runs daily via cron."""
+    async with db.admin_acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM webhook_events WHERE received_at < NOW() - INTERVAL '30 days'"
+        )
+    logger.info("cleanup_webhook_events: %s", result)
+
+
 async def startup(ctx: dict[str, Any]) -> None:
     await db.connect()
 
@@ -99,6 +109,7 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 class WorkerSettings:
     functions = [classify_message]
+    cron_jobs = [cron(cleanup_webhook_events, hour=3, minute=0)]
     redis_settings = queue.redis_settings()
     on_startup = startup
     on_shutdown = shutdown
