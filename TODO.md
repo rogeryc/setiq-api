@@ -107,7 +107,7 @@ Actualizar al final de cada sesión.
 - [ ] Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días).
 
 ### Schema / datos
-- [ ] Tabla `connected_channels` real (con tokens, last_sync_at, token_expires_at) — hoy los page tokens viven encriptados en `tenants.settings.meta.connected_pages` (JSONB). Funciona para demo/single-page, no escala. Detalle del cambio en `docs/meta_app_setup.md` §8.1. (verificado 2026-06-23: la tabla aún no existe).
+- [x] ~~Tabla `connected_channels` real (con tokens, last_sync_at, token_expires_at)~~ — hecho 2026-06-23 (migración `20260623210000_connected_channels.sql` con RLS; OAuth callback inserta ahí, deauthorize/data-deletion borra cross-tenant vía admin pool, disconnect borra scoped, reply lee el token desde la tabla). Los page tokens ya NO viven en `tenants.settings.meta.connected_pages`. `last_sync_at`/`token_expires_at` existen como columnas (aún sin poblar). El display de `/canales` sigue derivando estado demo de `settings.meta.page_ids` (separado, sin cambios).
 - [ ] Soporte multi-página por tenant: hoy `_pick_connected_page` toma la primera página (o la primera con IG link). Para tenants con varias páginas reales falta columna `received_by_page_id` en `conversations` + que el parser la setee + que el reply endpoint la use (`docs/meta_app_setup.md` §8.2).
 - [ ] Plantillas semilla más diversas (alineado con el punto del frontend).
 - [x] ~~TMR · Kaizen real~~ — hecho 2026-06-03 (LATERAL join sobre messages, WoW delta cuando hay cambio ≥ 1m; seed agrega outbound agent replies en ~60% de inbounds).

@@ -22,7 +22,6 @@ OAuth Redirect URI in the Meta App dashboard, step 4 won't actually
 reach this endpoint. The flow is wired and unit-testable; only the
 "real round-trip" depends on infrastructure.
 """
-import json
 import logging
 import secrets
 from typing import Any
@@ -190,22 +189,25 @@ async def callback(
             "connected_by_user_id": fb_user_id,
         })
 
-    # Persist into tenants.settings.meta.connected_pages — JSONB merge.
-    # NOTE: page tokens are sensitive. For MVP we accept storing them in
-    # tenants.settings; long-term they should move to a dedicated
-    # connected_channels table with encryption-at-rest (TODO item).
-    patch = {"meta": {"connected_pages": connected}}
-    async with db.acquire() as conn:
-        # Pool registers a JSONB codec, so dicts are auto-encoded; no manual
-        # json.dumps (would double-encode).
-        await conn.execute(
-            """
-            UPDATE tenants SET settings = settings || $1::jsonb, updated_at = NOW()
-            WHERE id = $2
-            """,
-            patch,
-            UUID(tenant_id),
-        )
+    async with db.acquire_for_tenant(tenant_id) as conn:
+        for c in connected:
+            await conn.execute(
+                """
+                INSERT INTO connected_channels (
+                    tenant_id, page_id, page_name, category, page_token,
+                    instagram_business_account, connected_by_user_id
+                ) VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6)
+                ON CONFLICT (tenant_id, page_id) DO UPDATE SET
+                    page_name = EXCLUDED.page_name,
+                    category = EXCLUDED.category,
+                    page_token = EXCLUDED.page_token,
+                    instagram_business_account = EXCLUDED.instagram_business_account,
+                    connected_by_user_id = EXCLUDED.connected_by_user_id,
+                    updated_at = NOW()
+                """,
+                c["page_id"], c["page_name"], c["category"], c["page_token"],
+                c["instagram_business_account"], c["connected_by_user_id"],
+            )
 
     return RedirectResponse(
         f"{front}/canales?meta_connected={len(connected)}",
@@ -220,42 +222,14 @@ async def _purge_user_pages(fb_user_id: str) -> tuple[list[str], list[UUID]]:
     deauthorize and data-deletion-callback endpoints — the same removal
     behavior applies.
     """
-    removed_pages: list[str] = []
-    affected_tenants: list[UUID] = []
-
-    async with db.acquire() as conn:
-        # Tenant count is small (< 100 foreseeable). Plain iteration is
-        # simpler than a JSONB path query and lets us log granularly.
+    async with db.admin_acquire() as conn:
         rows = await conn.fetch(
-            """
-            SELECT id, settings
-            FROM tenants
-            WHERE settings -> 'meta' -> 'connected_pages' IS NOT NULL
-            """
+            "DELETE FROM connected_channels WHERE connected_by_user_id = $1 "
+            "RETURNING page_id, tenant_id",
+            fb_user_id,
         )
-        for row in rows:
-            raw_settings = row["settings"]
-            current_settings = (
-                raw_settings if isinstance(raw_settings, dict)
-                else json.loads(raw_settings or "{}")
-            )
-            meta_block = current_settings.get("meta", {}) or {}
-            pages = meta_block.get("connected_pages") or []
-            kept = [p for p in pages if p.get("connected_by_user_id") != fb_user_id]
-            if len(kept) == len(pages):
-                continue
-            for p in pages:
-                if p.get("connected_by_user_id") == fb_user_id:
-                    removed_pages.append(p.get("page_id", "?"))
-            new_meta = {**meta_block, "connected_pages": kept}
-            await conn.execute(
-                "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), "
-                "updated_at = NOW() WHERE id = $2",
-                new_meta,
-                row["id"],
-            )
-            affected_tenants.append(row["id"])
-
+    removed_pages = [r["page_id"] for r in rows]
+    affected_tenants = list({r["tenant_id"] for r in rows})
     return removed_pages, affected_tenants
 
 
@@ -340,24 +314,10 @@ async def disconnect(
     """Remove a connected page from the tenant's settings. Doesn't tell
     Meta — that happens through the app's removal flow (user revokes the
     app from their FB account settings)."""
-    async with db.acquire() as raw:
-        row = await raw.fetchrow(
-            "SELECT settings FROM tenants WHERE id = $1",
-            current_user.tenant_id,
-        )
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "tenant not found")
-        raw_settings = row["settings"]
-        current_settings = (
-            raw_settings if isinstance(raw_settings, dict)
-            else json.loads(raw_settings or "{}")
-        )
-        meta_block = current_settings.get("meta", {}) or {}
-        new_pages = [p for p in (meta_block.get("connected_pages") or []) if p.get("page_id") != page_id]
-        new_meta = {**meta_block, "connected_pages": new_pages}
-        await raw.execute(
-            "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), updated_at = NOW() WHERE id = $2",
-            new_meta,
-            current_user.tenant_id,
+    async with db.acquire_for_tenant(str(current_user.tenant_id)) as conn:
+        await conn.execute(
+            "DELETE FROM connected_channels "
+            "WHERE tenant_id = current_tenant_id() AND page_id = $1",
+            page_id,
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
