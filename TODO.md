@@ -3,7 +3,7 @@
 Lista de tareas pendientes en ambos repos + cosas externas (papeleo, cuentas).
 Actualizar al final de cada sesión.
 
-**Última actualización:** 2026-06-23 (Saul: verificado contra el código tras mergear `main` — integración Meta completa del lado código: OAuth connect/callback/disconnect + callbacks deauthorize/data-deletion, cliente Graph API v22.0, encriptación Fernet de page tokens, `POST /conversations/{id}/reply`, botón "Conectar canal", tenant switcher, páginas legales, empty-state en 5 páginas. Guía de setup en `docs/meta_app_setup.md`.)
+**Última actualización:** 2026-06-23 PM (Saul + Claude) — deploy a prod en OVH VPS + CI/CD GitHub Actions + integración Meta configurada en dashboard + pipeline de IA real (clasificación + generador de insights + clasificación de menciones) vía LiteLLM (Llama sandbox / Claude por cliente). Ver "Estado actual" abajo. **Handoff para Roger: leer esa sección primero.**
 
 ---
 
@@ -18,25 +18,42 @@ Actualizar al final de cada sesión.
 
 ---
 
-## Estado deploy + Meta (2026-06-23 tarde · Saul + Claude)
+## Estado actual (2026-06-23 PM · Saul + Claude) — HANDOFF
 
-**Deploy a producción (HECHO):** stack completo corriendo en OVHcloud VPS (`149.56.44.13`).
-- `https://api.setiq.lat` (FastAPI) + `https://app.setiq.lat` (Angular SSR) · HTTPS auto vía Caddy.
-- `setiq.lat` / `www` → landing en Firebase (apex aún activándose, esperar).
-- Docker Compose: postgres + redis + api + web + caddy. Worker NO corre (espera `ANTHROPIC_API_KEY`).
-- Seed cargado (Thalma + Cervecería Andina). Logins `thalma@example.com` / `changeme123`, `demo@andina.example.com` / `changeme123`.
-- Runbook completo en `Setiq/deploy/README.md`.
-- 🔴 **Fix aplicado:** Caddy no enrutaba paths "pelados" (`/channels`, `/search`, `/team`, `/insights`, `/conversations`) → daban HTML en vez de JSON ("No pudimos cargar los canales"). Corregido en `deploy/Caddyfile`.
+### Infra / deploy (HECHO)
+- Stack en **OVHcloud VPS `149.56.44.13`** vía Docker Compose: postgres + redis + **api** (FastAPI) + **web** (Angular SSR) + **caddy** + **worker** (Arq).
+- `https://api.setiq.lat` (backend) · `https://app.setiq.lat` (frontend) · HTTPS auto (Caddy). `setiq.lat`/`www` → landing en Firebase (live).
+- Seed cargado (Thalma + Cervecería Andina). Logins: `thalma@example.com` / `changeme123`, `demo@andina.example.com` / `changeme123`.
+- **CI/CD GitHub Actions:** flujo `saul` → PR → `main`. CI (ruff/mypy/pytest + web build) corre en PRs a main; **CD deploya a la VPS en cada merge a main** (api: rsync→build→migrate dbmate→restart api+worker; web: build→restart). Secrets `VPS_HOST/USER/SSH_KEY` ya seteados.
+- Runbook + cómo redeployar/migrar/seed: `deploy/README.md`. Compose versionado en `setiq-api/deploy/`.
+- ⚠️ **Cambios de estructura del compose NO los reaplica el CD** (sólo rebuild/restart). Si agregás un servicio, actualizá el `docker-compose.yml` del server a mano (`/home/ubuntu/setiq/`).
 
-**Meta App (HECHO en dashboard):** app nueva tipo Empresa (`META_APP_ID=1728486774842629`), 3 casos de uso (IG, Página, Messenger), OAuth redirect registrado, webhooks IG (comments+messages) y Messenger (callback+token) configurados, testers (Thalma + Roger) agregados. Creds en el `.env` del server.
-- 🔴 **Fix aplicado:** `OAUTH_SCOPES` en `oauth.py` usaba nombres deprecados → Meta rechazaba el diálogo ("Invalid Scopes"). Reducido a los 4 válidos: `pages_show_list, pages_messaging, pages_manage_metadata, business_management`. El diálogo ya abre OK.
+### Meta (configurado en dashboard, código completo)
+- App Empresa `META_APP_ID=1728486774842629`. 3 casos de uso (IG, Página, Messenger), OAuth redirect, webhooks, testers (Thalma + Roger). Permisos IG por **Facebook Login** habilitados.
+- `OAUTH_SCOPES` final: `pages_show_list, pages_read_engagement, pages_messaging, pages_manage_metadata, instagram_basic, instagram_manage_comments, instagram_manage_messages, business_management`. Diálogo abre OK.
+- Tokens en tabla **`connected_channels`** (RLS, Fernet) — ya NO en `tenants.settings` JSONB.
+- **Pendiente:** [ ] completar una conexión REAL (Thalma autoriza su cuenta con FB Page+IG); [ ] App Review (bloqueado por incorporación de empresa).
 
-**Pendiente Meta (lo que falta para que funcione de verdad):**
-- [ ] **Completar una conexión real:** autorizar con una cuenta que TENGA Facebook Page (Thalma). Hoy el diálogo abre pero 0 páginas conectadas (Thalma ocupada).
-- [~] **Instagram + lectura de páginas (scopes):** código hecho 2026-06-23 — `OAUTH_SCOPES` ahora pide `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `pages_read_engagement` (+ scopes de página existentes). Confirmado por research: el path correcto es **Instagram API con Facebook Login** (IG Business linkeada a FB Page + page tokens), que usa los nombres clásicos — NO `instagram_business_*` (esos son del path Instagram Login, que requeriría reescribir el backend). Pendiente (dashboard + test): caso de uso IG → "Configuración de la API con inicio de sesión de Facebook" → "Add required content/messaging permissions" + agregar `instagram_manage_comments` desde "Permisos y funciones"; luego probar el diálogo de OAuth.
-- [ ] Páginas legales (privacy/terms) en el dashboard + App Review (App Review bloqueado por incorporación de empresa).
+### Pipeline de IA (HECHO — real, no placeholder)
+- Classifier **pluggable vía LiteLLM** (`CLASSIFIER_MODEL`): sandbox = `groq/llama-3.3-70b-versatile` (GRATIS, `GROQ_API_KEY` seteado en el server), prod por cliente = `anthropic/claude-haiku-4-5` (`ANTHROPIC_API_KEY`). **Switch = una env var, sin código.** (Kimi NO está en Groq; para Kimi sería OpenRouter.)
+- Worker corre 2 jobs + 2 crons: `classify_message`, `classify_mention`, `generate_insights`; crons `cleanup_webhook_events` (3am UTC) y `generate_all_insights` (4am UTC).
+- **Clasificación de mensajes:** real (Llama) — seed de Thalma backfilleado.
+- **Generador de insights/recomendaciones:** `ai/insights_generator.py` — agrega data real del tenant → LLM → lead+featured+memos. Reemplaza los insights hand-written del seed.
+- **Clasificación de menciones:** `classify_mention` — real (Llama); backfill de menciones del seed en curso.
+- ⚠️ **Modelo es GLOBAL, no per-tenant todavía.** Hoy TODOS los tenants usan `CLASSIFIER_MODEL`. Para "test→Llama / cliente real→Claude" simultáneo falta **per-tenant model routing** (guardar el modelo en `tenants.settings.ai.classifier_model` y leerlo por mensaje). Diferido (Saul ok con Llama-para-todos por ahora).
 
-**Housekeeping (HECHO ahora):** commit + push de todo lo de hoy (deploy files, edits de TODO.md, Caddyfile, fix de scopes) a las branches `saul`.
+### Env vars clave en el `.env` del server (`/home/ubuntu/setiq/.env`)
+`GROQ_API_KEY`=set · `CLASSIFIER_MODEL`=groq/llama-3.3-70b-versatile · `ANTHROPIC_API_KEY`=blank (setear por cliente pago) · `META_APP_ID/SECRET`=set · `META_WEBHOOK_VERIFY_TOKEN`/`META_TOKEN_ENCRYPTION_KEY`/`JWT_SECRET`/`POSTGRES_PASSWORD`=generados.
+
+### Lo que sigue (sin bloqueo externo, código)
+- [ ] Per-tenant model routing (test→Llama / cliente→Claude).
+- [ ] Sentry/Logtail. [ ] Backups Postgres → Backblaze B2 (antes de data real). [ ] Refrescar contenido del landing. [ ] Env separation dev/staging/prod.
+
+### Bloqueado por cuenta/key (Roger)
+- [ ] Apify (worker TikTok/competidores + botón "Sincronizar todo"). [ ] Postmark (email inbound). [ ] `ANTHROPIC_API_KEY` con saldo (para correr clientes en Claude).
+
+### Bloqueado por Thalma / incorporación
+- [ ] Conexión Meta real + test IG (Thalma). [ ] Lista definitiva de competidores/keywords. [ ] Video demo. [ ] App Review → WhatsApp + Live mode (requiere empresa incorporada).
 
 ---
 
