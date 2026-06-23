@@ -100,7 +100,7 @@ Actualizar al final de cada sesión.
 
 ### Workers / pipelines
 - [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo. **(ÚLTIMO — sólo TikTok/competidores, no bloquea el MVP)**
-- [~] Worker Arq de clasificación con Claude — worker deployado en la VPS 2026-06-23 (corre + idle, cliente Anthropic lazy). Se activa al agregar `ANTHROPIC_API_KEY` con saldo (Roger).
+- [~] Worker Arq de clasificación — worker deployado 2026-06-23. Classifier ahora pluggable vía **LiteLLM** (`CLASSIFIER_MODEL`): sandbox `groq/moonshotai/kimi-k2-instruct` (gratis, needs `GROQ_API_KEY`), prod por cliente real `anthropic/claude-haiku-4-5` (needs `ANTHROPIC_API_KEY`). Switch = una env var, sin cambios de código. Se activa al agregar la key correspondiente.
 - [ ] Postmark inbound (email ingestion). Necesita cuenta Postmark + DNS de Thalma.
 - [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado. **(NO CONSIDERAR TODAVÍA — fuera de alcance)**
 - [x] ~~Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días)~~ — hecho 2026-06-23 (`cleanup_webhook_events` como `cron_jobs` de Arq, diario 03:00 UTC). Worker Arq deployado en la VPS → el cron ya corre.

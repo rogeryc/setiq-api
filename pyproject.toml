@@ -17,6 +17,7 @@ dependencies = [
     "structlog>=24.4",
     "python-multipart>=0.0.12",
     "cryptography>=43.0",
+    "litellm>=1.55",
 ]
 
 [project.optional-dependencies]
@@ -61,7 +62,7 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["asyncpg", "asyncpg.*", "arq", "arq.*"]
+module = ["asyncpg", "asyncpg.*", "arq", "arq.*", "litellm", "litellm.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

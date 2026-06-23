@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     web_origin: str = "http://localhost:4200"
 
     anthropic_api_key: str = ""
+    groq_api_key: str = ""
+    classifier_model: str = "anthropic/claude-haiku-4-5"
 
 
 settings = Settings()
