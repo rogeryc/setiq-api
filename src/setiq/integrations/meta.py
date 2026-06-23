@@ -18,10 +18,9 @@ volume is operator-driven (1 reply at a time) so this is fine.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import httpx
-
 
 BASE_URL = "https://graph.facebook.com/v22.0"
 DEFAULT_TIMEOUT = 12.0
@@ -78,7 +77,7 @@ class MetaClient:
                 type=err.get("type"),
                 http_status=resp.status_code,
             )
-        return body
+        return cast(dict[str, Any], body)
 
     # ------------------------------------------------------------------ OAuth
 
@@ -139,7 +138,7 @@ class MetaClient:
         what we store per-tenant for all subsequent Page-scoped calls.
         """
         body = await self._request("GET", "/me/accounts", token=user_long_token)
-        return body.get("data", [])
+        return cast(list[dict[str, Any]], body.get("data", []))
 
     async def get_page(self, page_id: str, page_token: str) -> dict[str, Any]:
         """Basic page info — name, category, etc. Useful to verify a token
@@ -293,4 +292,4 @@ def parse_signed_request(signed_request: str, app_secret: str) -> dict[str, Any]
     if not _hmac.compare_digest(sig, expected):
         raise SignedRequestError("signature mismatch")
 
-    return data
+    return cast(dict[str, Any], data)

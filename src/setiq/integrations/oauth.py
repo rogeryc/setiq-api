@@ -249,7 +249,8 @@ async def _purge_user_pages(fb_user_id: str) -> tuple[list[str], list[UUID]]:
                     removed_pages.append(p.get("page_id", "?"))
             new_meta = {**meta_block, "connected_pages": kept}
             await conn.execute(
-                "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), updated_at = NOW() WHERE id = $2",
+                "UPDATE tenants SET settings = jsonb_set(settings, '{meta}', $1::jsonb), "
+                "updated_at = NOW() WHERE id = $2",
                 new_meta,
                 row["id"],
             )

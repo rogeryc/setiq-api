@@ -8,13 +8,12 @@ GET /conversations/{id}?as_thread=true                        → thread detail
                                                                  commenters on
                                                                  the post)
 """
-from typing import Literal
+import logging
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-
-import logging
 
 from setiq.auth.dependencies import CurrentUser, get_current_user, get_tenant_db
 from setiq.config import settings
@@ -510,7 +509,7 @@ async def _get_thread_detail(
 # Reply — POST /conversations/{id}/reply
 # ---------------------------------------------------------------------------
 
-def _pick_connected_page(settings_obj: dict, channel: str) -> dict | None:
+def _pick_connected_page(settings_obj: dict[str, Any], channel: str) -> dict[str, Any] | None:
     """Pick the page that owns this channel.
 
     MVP heuristic: take the first connected page in the tenant's
@@ -518,7 +517,7 @@ def _pick_connected_page(settings_obj: dict, channel: str) -> dict | None:
     a `received_by_page_id` column on conversations to map back precisely;
     deferred until we have a tenant with > 1 page.
     """
-    pages = ((settings_obj or {}).get("meta") or {}).get("connected_pages") or []
+    pages: list[dict[str, Any]] = ((settings_obj or {}).get("meta") or {}).get("connected_pages") or []
     if not pages:
         return None
     # For IG channels, prefer a page that has a linked IG account.
