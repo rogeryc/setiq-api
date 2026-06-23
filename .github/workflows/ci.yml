@@ -39,6 +39,8 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: ci_only_secret
       ENVIRONMENT: test
+      DBMATE_MIGRATIONS_DIR: dbmate/migrations
+      DBMATE_SCHEMA_FILE: dbmate/schema.sql
 
     steps:
       - uses: actions/checkout@v4
