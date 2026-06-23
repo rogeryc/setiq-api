@@ -14,7 +14,7 @@ import asyncpg
 from arq import cron
 
 from setiq import db, queue
-from setiq.ai import classifier
+from setiq.ai import classifier, insights_generator
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,48 @@ def _conf(v: Any) -> float | None:
         return None
 
 
+async def generate_insights(ctx: dict[str, Any], tenant_id: str) -> None:
+    """Generate AI insights for one tenant and replace its current set."""
+    tid = UUID(tenant_id)
+    async with db.admin_acquire() as conn:
+        tenant_name = await conn.fetchval("SELECT name FROM tenants WHERE id = $1", tid)
+        if tenant_name is None:
+            logger.warning("generate_insights: tenant %s not found", tenant_id)
+            return
+        rows = await insights_generator.generate(conn, tid, tenant_name)
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE insights SET deleted_at = NOW() "
+                "WHERE tenant_id = $1 AND deleted_at IS NULL",
+                tid,
+            )
+            for r in rows:
+                await conn.execute(
+                    """
+                    INSERT INTO insights (
+                        tenant_id, kind, severity, tag, title, title_em, title_tail,
+                        body, confidence, age, impact, footnote, actions, rank
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                    """,
+                    tid, r["kind"], r["severity"], r["tag"], r["title"], r["title_em"],
+                    r["title_tail"], r["body"], r["confidence"], r["age"], r["impact"],
+                    r["footnote"], r["actions"], r["rank"],
+                )
+    logger.info("generate_insights: %d insights for tenant %s", len(rows), tenant_id)
+
+
+async def generate_all_insights(ctx: dict[str, Any]) -> None:
+    """Cron: enqueue insight generation for every active/trial tenant."""
+    redis = ctx["redis"]
+    async with db.admin_acquire() as conn:
+        ids = await conn.fetch(
+            "SELECT id FROM tenants WHERE status IN ('active', 'trial')"
+        )
+    for r in ids:
+        await redis.enqueue_job("generate_insights", str(r["id"]))
+    logger.info("generate_all_insights: enqueued %d tenants", len(ids))
+
+
 async def cleanup_webhook_events(ctx: dict[str, Any]) -> None:
     """Hard-delete webhook_events older than 30 days. Runs daily via cron."""
     async with db.admin_acquire() as conn:
@@ -108,8 +150,11 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [classify_message]
-    cron_jobs = [cron(cleanup_webhook_events, hour=3, minute=0)]
+    functions = [classify_message, generate_insights]
+    cron_jobs = [
+        cron(cleanup_webhook_events, hour=3, minute=0),
+        cron(generate_all_insights, hour=4, minute=0),
+    ]
     redis_settings = queue.redis_settings()
     on_startup = startup
     on_shutdown = shutdown
