@@ -9,7 +9,7 @@ GET /conversations/{id}?as_thread=true                        → thread detail
                                                                  the post)
 """
 import logging
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 import asyncpg
@@ -509,9 +509,27 @@ async def _get_thread_detail(
 # Reply — POST /conversations/{id}/reply
 # ---------------------------------------------------------------------------
 
-async def _pick_page_token(conn: asyncpg.Connection, channel: str) -> str | None:
+async def _pick_page_token(
+    conn: asyncpg.Connection, channel: str, received_by_page_id: str | None = None
+) -> str | None:
     """Return the encrypted page token for this channel, RLS-scoped to the
-    current tenant. IG channels prefer a page with a linked IG account."""
+    current tenant. Prefers the exact page/IG account that received the event
+    (received_by_page_id); falls back to a per-channel heuristic."""
+    if received_by_page_id:
+        if channel.startswith("instagram"):
+            row = await conn.fetchrow(
+                "SELECT page_token FROM connected_channels "
+                "WHERE instagram_business_account->>'id' = $1",
+                received_by_page_id,
+            )
+        else:
+            row = await conn.fetchrow(
+                "SELECT page_token FROM connected_channels WHERE page_id = $1",
+                received_by_page_id,
+            )
+        if row:
+            return cast(str, row["page_token"])
+
     if channel.startswith("instagram"):
         row = await conn.fetchrow(
             "SELECT page_token FROM connected_channels "
@@ -552,7 +570,7 @@ async def reply_to_conversation(
     # for comment replies, or the contact's external_id for DMs).
     conv = await conn.fetchrow(
         """
-        SELECT c.id, c.channel, c.status,
+        SELECT c.id, c.channel, c.status, c.received_by_page_id,
                ci.external_id AS contact_external_id
         FROM conversations c
         JOIN channel_identities ci ON ci.id = c.channel_identity_id
@@ -586,7 +604,7 @@ async def reply_to_conversation(
             "Cannot reply to a comment thread that has no inbound messages",
         )
 
-    encrypted_token = await _pick_page_token(conn, channel)
+    encrypted_token = await _pick_page_token(conn, channel, conv["received_by_page_id"])
     if encrypted_token is None:
         raise HTTPException(
             status.HTTP_412_PRECONDITION_FAILED,
