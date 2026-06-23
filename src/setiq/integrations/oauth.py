@@ -55,14 +55,8 @@ router = APIRouter(prefix="/auth/meta", tags=["meta-oauth"])
 # expressed as the underlying scope strings Meta wants here.
 OAUTH_SCOPES = [
     "pages_show_list",
-    "pages_read_engagement",
     "pages_messaging",
-    "pages_messaging_subscriptions",
-    "pages_manage_engagement",
     "pages_manage_metadata",
-    "instagram_basic",
-    "instagram_manage_comments",
-    "instagram_manage_messages",
     "business_management",
 ]
 

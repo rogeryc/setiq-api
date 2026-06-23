@@ -1,0 +1,11 @@
+api.setiq.lat {
+	reverse_proxy api:8000
+}
+
+app.setiq.lat {
+	@api {
+		path /auth /auth/* /tenants /tenants/* /channels /channels/* /tracked-subjects /tracked-subjects/* /conversations /conversations/* /dashboard /dashboard/* /insights /insights/* /search /search/* /team /team/* /webhooks /webhooks/* /health /health/*
+	}
+	reverse_proxy @api api:8000
+	reverse_proxy web:4000
+}
