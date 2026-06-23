@@ -46,6 +46,43 @@ async def classify_message(ctx: dict[str, Any], message_id: str) -> None:
         logger.info("classified message %s: %s", message_id, result)
 
 
+async def classify_mention(ctx: dict[str, Any], mention_id: str) -> None:
+    """Read a mention's text, run the LLM, write mention_classifications."""
+    mid = UUID(mention_id)
+    async with db.admin_acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, tenant_id, content_text FROM mentions WHERE id = $1", mid
+        )
+        if row is None:
+            logger.warning("classify_mention: mention %s not found", mention_id)
+            return
+        if not row["content_text"]:
+            logger.info("classify_mention: mention %s has no text; skipping", mention_id)
+            return
+        try:
+            result = await classifier.classify_text(row["content_text"])
+        except Exception:
+            logger.exception("classification failed for mention %s", mention_id)
+            raise
+        await _persist_mention(conn, row["tenant_id"], mid, result)
+        logger.info("classified mention %s", mention_id)
+
+
+def _classification_rows(result: dict[str, Any]) -> list[tuple[str, str, float | None]]:
+    rows: list[tuple[str, str, float | None]] = []
+    if "sentiment" in result:
+        rows.append(("sentiment", str(result["sentiment"]), _conf(result.get("sentiment_confidence"))))
+    if "intent" in result:
+        rows.append(("intent", str(result["intent"]), _conf(result.get("intent_confidence"))))
+    if "priority" in result:
+        rows.append(("priority", str(result["priority"]), None))
+    if "opportunity" in result:
+        rows.append(("opportunity", "yes" if result["opportunity"] else "no", None))
+    if "language" in result:
+        rows.append(("language", str(result["language"]), None))
+    return rows
+
+
 async def _persist(
     conn: asyncpg.Connection,
     tenant_id: UUID,
@@ -53,22 +90,7 @@ async def _persist(
     result: dict[str, Any],
 ) -> None:
     model_name, model_version = classifier.model_info()
-    rows: list[tuple[str, str, float | None]] = []
-
-    if "sentiment" in result:
-        rows.append(("sentiment", str(result["sentiment"]),
-                     _conf(result.get("sentiment_confidence"))))
-    if "intent" in result:
-        rows.append(("intent", str(result["intent"]),
-                     _conf(result.get("intent_confidence"))))
-    if "priority" in result:
-        rows.append(("priority", str(result["priority"]), None))
-    if "opportunity" in result:
-        rows.append(("opportunity", "yes" if result["opportunity"] else "no", None))
-    if "language" in result:
-        rows.append(("language", str(result["language"]), None))
-
-    for kind, label, confidence in rows:
+    for kind, label, confidence in _classification_rows(result):
         await conn.execute(
             """
             INSERT INTO message_classifications (
@@ -77,6 +99,26 @@ async def _persist(
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             tenant_id, message_id, kind, label, confidence,
+            model_name, model_version, result,
+        )
+
+
+async def _persist_mention(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    mention_id: UUID,
+    result: dict[str, Any],
+) -> None:
+    model_name, model_version = classifier.model_info()
+    for kind, label, confidence in _classification_rows(result):
+        await conn.execute(
+            """
+            INSERT INTO mention_classifications (
+                tenant_id, mention_id, kind, label, confidence,
+                model_name, model_version, payload
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """,
+            tenant_id, mention_id, kind, label, confidence,
             model_name, model_version, result,
         )
 
@@ -150,7 +192,7 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [classify_message, generate_insights]
+    functions = [classify_message, classify_mention, generate_insights]
     cron_jobs = [
         cron(cleanup_webhook_events, hour=3, minute=0),
         cron(generate_all_insights, hour=4, minute=0),
