@@ -33,8 +33,7 @@ Actualizar al final de cada sesión.
 
 **Pendiente Meta (lo que falta para que funcione de verdad):**
 - [ ] **Completar una conexión real:** autorizar con una cuenta que TENGA Facebook Page (Thalma). Hoy el diálogo abre pero 0 páginas conectadas (Thalma ocupada).
-- [ ] **Instagram (canal principal de Thalma):** renombrar scopes a `instagram_business_basic` / `instagram_business_manage_comments` / `instagram_business_manage_messages` en `oauth.py` + habilitarlos en el dashboard (caso de uso IG → "Permisos y funciones"). Hoy IG no se conecta.
-- [ ] **`pages_read_engagement`:** habilitarlo en el dashboard + volver a agregarlo a `OAUTH_SCOPES` (necesario para leer comentarios/feed de FB y encontrar la IG business account).
+- [~] **Instagram + lectura de páginas (scopes):** código hecho 2026-06-23 — `OAUTH_SCOPES` ahora pide `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `pages_read_engagement` (+ scopes de página existentes). Confirmado por research: el path correcto es **Instagram API con Facebook Login** (IG Business linkeada a FB Page + page tokens), que usa los nombres clásicos — NO `instagram_business_*` (esos son del path Instagram Login, que requeriría reescribir el backend). Pendiente (dashboard + test): caso de uso IG → "Configuración de la API con inicio de sesión de Facebook" → "Add required content/messaging permissions" + agregar `instagram_manage_comments` desde "Permisos y funciones"; luego probar el diálogo de OAuth.
 - [ ] Páginas legales (privacy/terms) en el dashboard + App Review (App Review bloqueado por incorporación de empresa).
 
 **Housekeeping (HECHO ahora):** commit + push de todo lo de hoy (deploy files, edits de TODO.md, Caddyfile, fix de scopes) a las branches `saul`.
