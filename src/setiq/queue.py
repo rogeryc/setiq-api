@@ -45,3 +45,11 @@ async def enqueue_classify_message(message_id: UUID) -> None:
         await pool().enqueue_job("classify_message", str(message_id))
     except Exception:
         logger.exception("failed to enqueue classification for %s", message_id)
+
+
+async def enqueue_classify_mention(mention_id: UUID) -> None:
+    """Best-effort enqueue for an off-property mention (Apify ingestion)."""
+    try:
+        await pool().enqueue_job("classify_mention", str(mention_id))
+    except Exception:
+        logger.exception("failed to enqueue mention classification for %s", mention_id)
