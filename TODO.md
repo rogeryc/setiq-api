@@ -96,14 +96,14 @@ Actualizar al final de cada sesión.
 - [x] ~~Cliente Graph API v22.0~~ — `src/setiq/integrations/meta.py`.
 - [x] ~~Encriptación Fernet de page tokens en reposo~~ — `src/setiq/integrations/secrets.py` (prefijo `enc:v1:`; tokens viven en `tenants.settings.meta.connected_pages`).
 - [x] ~~Verificación de firma HMAC-SHA256 de webhooks~~ — `src/setiq/ingestion/meta.py`.
-- [ ] **Pendiente (config, no código):** crear/configurar la Meta App en el dashboard + App Review. Pasos completos en `docs/meta_app_setup.md`.
+- [x] ~~Crear/configurar la Meta App en el dashboard~~ — hecho 2026-06-23 (app Empresa `1728486774842629`, 3 casos de uso, OAuth redirect, webhooks IG+Messenger, permisos IG/FB habilitados, testers, URLs legales). Falta sólo **App Review** (bloqueado por incorporación de empresa).
 
 ### Workers / pipelines
 - [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo. **(ÚLTIMO — sólo TikTok/competidores, no bloquea el MVP)**
-- [ ] Worker Arq de clasificación con Claude. Código listo (`setiq.workers.runner`); bloqueado por `ANTHROPIC_API_KEY` con saldo.
+- [~] Worker Arq de clasificación con Claude — worker deployado en la VPS 2026-06-23 (corre + idle, cliente Anthropic lazy). Se activa al agregar `ANTHROPIC_API_KEY` con saldo (Roger).
 - [ ] Postmark inbound (email ingestion). Necesita cuenta Postmark + DNS de Thalma.
 - [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado. **(NO CONSIDERAR TODAVÍA — fuera de alcance)**
-- [x] ~~Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días)~~ — hecho 2026-06-23 (`cleanup_webhook_events` como `cron_jobs` de Arq, diario 03:00 UTC). Se activa cuando corra el worker (hoy no está deployado).
+- [x] ~~Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días)~~ — hecho 2026-06-23 (`cleanup_webhook_events` como `cron_jobs` de Arq, diario 03:00 UTC). Worker Arq deployado en la VPS → el cron ya corre.
 
 ### Schema / datos
 - [x] ~~Tabla `connected_channels` real (con tokens, last_sync_at, token_expires_at)~~ — hecho 2026-06-23 (migración `20260623210000_connected_channels.sql` con RLS; OAuth callback inserta ahí, deauthorize/data-deletion borra cross-tenant vía admin pool, disconnect borra scoped, reply lee el token desde la tabla). Los page tokens ya NO viven en `tenants.settings.meta.connected_pages`. `last_sync_at`/`token_expires_at` existen como columnas (aún sin poblar). El display de `/canales` sigue derivando estado demo de `settings.meta.page_ids` (separado, sin cambios).
@@ -121,13 +121,13 @@ Actualizar al final de cada sesión.
 
 ## Infra / Ops
 
-- [ ] Deploy en Hetzner — 1 VPS con Docker Compose (Postgres, Redis, FastAPI, Arq worker, Caddy/Traefik).
+- [x] ~~Deploy en VPS con Docker Compose~~ — hecho 2026-06-23 en OVHcloud (no Hetzner): Postgres + Redis + FastAPI + web SSR + Caddy + worker Arq. Runbook en `deploy/README.md`.
 - [ ] Backups de Postgres a Backblaze B2 (pgbackrest).
 - [ ] Sentry / Logtail para errores.
-- [ ] CI con GitHub Actions: lint + tests + build per push.
-- [ ] Dominio + DNS (`setiq.bo`? `setiq.app`?).
-- [~] Privacy Policy + Terms of Service + Data Deletion (requisito de Meta App Review) — HTML self-contained ya creado en `setiq-web/src/assets/legal/{privacy,terms,data-deletion}.html` (hecho 2026-06-21, Roger). Falta: publicarlos en URLs públicas estables (hoy los sirve el dev server) y reemplazar el placeholder `Roger Vaca` por la razón social cuando la empresa se incorpore.
-- [ ] HTTPS + certs (Caddy lo hace solo).
+- [x] ~~CI con GitHub Actions~~ — hecho 2026-06-23 (CI ruff/mypy/pytest + web build en PRs a main; CD deploy a la VPS en merge a main, ambos repos).
+- [x] ~~Dominio + DNS~~ — hecho 2026-06-23: `setiq.lat` (landing Firebase) + `app.setiq.lat`/`api.setiq.lat` → VPS.
+- [x] ~~Privacy Policy + Terms of Service + Data Deletion publicados~~ — hecho 2026-06-23: servidos públicamente en `https://app.setiq.lat/assets/legal/{privacy,terms,data-deletion}.html` (fix: `angular.json` no copiaba `src/assets`; ahora sí). Falta sólo reemplazar el placeholder `Roger Vaca` por la razón social cuando la empresa se incorpore.
+- [x] ~~HTTPS + certs~~ — hecho 2026-06-23 (Caddy auto-TLS para api/app.setiq.lat).
 - [ ] Variables de entorno separadas dev/staging/prod.
 
 ---
