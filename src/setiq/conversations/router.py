@@ -8,13 +8,12 @@ GET /conversations/{id}?as_thread=true                        → thread detail
                                                                  commenters on
                                                                  the post)
 """
+import logging
 from typing import Literal
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-
-import logging
 
 from setiq.auth.dependencies import CurrentUser, get_current_user, get_tenant_db
 from setiq.config import settings
@@ -510,24 +509,20 @@ async def _get_thread_detail(
 # Reply — POST /conversations/{id}/reply
 # ---------------------------------------------------------------------------
 
-def _pick_connected_page(settings_obj: dict, channel: str) -> dict | None:
-    """Pick the page that owns this channel.
-
-    MVP heuristic: take the first connected page in the tenant's
-    settings.meta.connected_pages list. Multi-page tenants will need
-    a `received_by_page_id` column on conversations to map back precisely;
-    deferred until we have a tenant with > 1 page.
-    """
-    pages = ((settings_obj or {}).get("meta") or {}).get("connected_pages") or []
-    if not pages:
-        return None
-    # For IG channels, prefer a page that has a linked IG account.
+async def _pick_page_token(conn: asyncpg.Connection, channel: str) -> str | None:
+    """Return the encrypted page token for this channel, RLS-scoped to the
+    current tenant. IG channels prefer a page with a linked IG account."""
     if channel.startswith("instagram"):
-        for p in pages:
-            if p.get("instagram_business_account"):
-                return p
-        return None
-    return pages[0]
+        row = await conn.fetchrow(
+            "SELECT page_token FROM connected_channels "
+            "WHERE instagram_business_account IS NOT NULL "
+            "ORDER BY created_at LIMIT 1"
+        )
+    else:
+        row = await conn.fetchrow(
+            "SELECT page_token FROM connected_channels ORDER BY created_at LIMIT 1"
+        )
+    return row["page_token"] if row else None
 
 
 @router.post(
@@ -591,23 +586,15 @@ async def reply_to_conversation(
             "Cannot reply to a comment thread that has no inbound messages",
         )
 
-    # Find the right page token. RLS already scoped us to the current tenant,
-    # so an unqualified select on tenants returns this tenant's row.
-    tenant_row = await conn.fetchrow(
-        "SELECT settings FROM tenants WHERE id = current_tenant_id()"
-    )
-    if tenant_row is None:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant resolution failed")
-
-    page = _pick_connected_page(tenant_row["settings"] or {}, channel)
-    if page is None:
+    encrypted_token = await _pick_page_token(conn, channel)
+    if encrypted_token is None:
         raise HTTPException(
             status.HTTP_412_PRECONDITION_FAILED,
             "No Meta page connected for this channel. Connect one in /canales first.",
         )
 
     try:
-        page_token = decrypt_token(page["page_token"])
+        page_token = decrypt_token(encrypted_token)
     except RuntimeError as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
 
