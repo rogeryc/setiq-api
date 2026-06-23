@@ -30,19 +30,19 @@ jobs:
             --exclude __pycache__ --exclude .pytest_cache --exclude .mypy_cache \
             ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/ubuntu/setiq/setiq-api/
 
-      - name: Build, migrate, restart API
+      - name: Build, migrate, restart API + worker
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' <<'EOF'
           set -e
           cd /home/ubuntu/setiq
           set -a; source .env; set +a
-          docker compose build api
+          docker compose build api worker
           docker run --rm --network setiq_default \
             -v /home/ubuntu/setiq/setiq-api/dbmate:/db \
             -e DATABASE_URL="$DATABASE_URL" \
             -e DBMATE_MIGRATIONS_DIR=/db/migrations \
             -e DBMATE_SCHEMA_FILE=/db/schema.sql \
             ghcr.io/amacneil/dbmate:2 up
-          docker compose up -d api
-          docker compose ps api
+          docker compose up -d api worker
+          docker compose ps api worker
           EOF
