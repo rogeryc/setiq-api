@@ -24,7 +24,9 @@ de su audiencia en redes sociales.
 
 A partir del resumen de datos REALES de un tenant, generá insights accionables \
 en español rioplatense-neutro boliviano. NO inventes números que no estén en el \
-resumen. Sé concreto y útil.
+resumen. Sé concreto y útil. Fundamentá CADA insight citando números concretos del \
+resumen (ej. "29 menciones negativas", "140 conversaciones sin resolver") dentro del \
+body, impact o footnote — esa evidencia es obligatoria.
 
 Devolvé SOLO un objeto JSON con esta forma exacta, sin texto adicional:
 {
