@@ -57,6 +57,55 @@ Actualizar al final de cada sesión.
 
 ---
 
+## Roadmap AI Product + Mobile (2026-06-24 · secuencia priorizada)
+
+> Objetivo: pasar de "dashboard con labels de IA" a **producto AI-native**. Orden: polish → salto de producto → moat → conversacional/ongoing. **Mobile es transversal** (arreglar todas las páginas; el Inbox está bug). Auditoría UI/UX hecha contra la app live 2026-06-24.
+
+### Fase 0 — Polish (que la IA que ya está se sienta terminada)
+- [ ] Headline del insight `lead` gramatical: el generador debe devolver UN titular limpio (o title + subtítulo), no pegar `title_em` y armar oraciones run-on (ej. "…Thalma Roca sentimiento neutral y positivo"). Ajustar prompt en `ai/insights_generator.py` + render.
+- [ ] Labels de clasificación en español en TODA la UI (intent/sentiment/priority): Queja / Negativo / Alta, etc. Hoy el detalle del Inbox muestra `complaint/negative/high` en inglés y los chips en español → unificar en la capa de display.
+- [ ] Inbox: distinguir visualmente inbound vs outbound (lado/color); hoy los mensajes se ven idénticos.
+- [ ] Reemplazar el "— actualizando…" persistente del masthead por un indicador sutil y transitorio.
+- [ ] Insights accionables: renderizar los botones `actions` en Recomendaciones (no sólo en el dashboard) + deep-link al Inbox/segmento filtrado.
+- [ ] Insights con evidencia: mostrar "basado en N mensajes/menciones" + link a la data detrás de cada insight.
+- [ ] Dashboard: selector de rango temporal (7 / 30 / 90 días) en vez de fijo.
+- [ ] Dashboard: priorizar "lo que necesita atención" (sin resolver / negativos) antes de las métricas vanity.
+
+### Fase 1 — Salto de producto (lo que el comprador siente)
+- [ ] ⭐ **Respuestas redactadas por IA** en el composer del Inbox: sugerir respuesta usando la conversación + su clasificación + voz de marca; el agente edita y envía (LiteLLM, mismo model config).
+- [ ] Ajustes de voz/tono de marca por tenant (alimenta el prompt de respuesta).
+- [ ] Alertas proactivas: detectar caída de sentiment / cluster de quejas / spike negativo.
+- [ ] Entrega de alertas: in-app + email (WhatsApp después).
+- [ ] Digest semanal por IA enviado por email (el "Resumen del lunes" como mail real, no sólo página).
+
+### Fase 2 — Moat (defensibilidad + escala multi-cliente)
+- [ ] Contexto/taxonomía de IA por tenant (`tenants.settings.context`: industria, categorías de audiencia/temas) + `PATCH /tenants/me/context` + form de onboarding por industria.
+- [ ] Refactor de prompts (classifier + insights) para leer el contexto del tenant en vez de hardcodear categorías.
+- [ ] Auto-temas / clustering de quejas + menciones en tópicos emergentes (ej. envío, precio) + trend en el tiempo.
+- [ ] Closed-loop learning: capturar correcciones de labels del agente + respuestas editadas como señal.
+- [ ] Evidencia/citations (grounding tipo RAG) en cada insight y respuesta de IA.
+- [ ] Per-tenant model routing (test→Llama / cliente real→Claude vía `tenants.settings.ai.classifier_model`).
+
+### Fase 3 — Conversacional + ongoing
+- [ ] "Pregúntale a tu data": analítica conversacional sobre la data del tenant (estilo ⌘K), respuestas grounded + links.
+- [ ] Tracking de costo/uso de LLM por tenant.
+- [ ] Sentry / Logtail para errores.
+- [ ] Backups de Postgres → Backblaze B2.
+- [ ] Refrescar contenido del landing (`setiq.lat`).
+- [ ] Env separation dev / staging / prod.
+
+### Mobile responsive (TRANSVERSAL — arreglar todas, el Inbox está bug)
+- [ ] 🔴 **Inbox mobile (BUG):** el layout 2-paneles (`360px + 1fr`) se rompe en mobile → colapsar a navegación lista→detalle (tap en conversación abre detalle full-screen + botón volver). La más crítica.
+- [ ] Resumen/dashboard mobile: KPI cards + grid "Decisiones" apilan limpio.
+- [ ] Recomendaciones mobile: cards destacadas/memos a una columna.
+- [ ] Segmentos mobile: cards de sujetos a una columna + chips de filtro que wrappean.
+- [ ] Canales mobile: filas/tabla de canales responsive.
+- [ ] Equipo + Ajustes: pasada mobile.
+- [ ] Masthead/nav global: colapsar la nav (hamburger o nav scrollable) en mobile.
+- [ ] QA final a 375px (iPhone) en todas las páginas, especialmente el triage del Inbox.
+
+---
+
 ## Frontend (setiq-web)
 
 ### Páginas que faltan construir
