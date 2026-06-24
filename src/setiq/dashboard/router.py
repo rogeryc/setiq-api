@@ -173,10 +173,10 @@ async def overview(
 
     kpis = [
         OverviewKpi(
-            label="Interacciones",
-            value=_format_int_es(interactions_30d),
-            delta=_pct_delta(interactions_30d, interactions_prev),
-            sub="vs mes anterior",
+            label="Sin resolver",
+            value=str(unresolved),
+            delta=backlog_delta,
+            sub=f"{high_priority} de alta prioridad" if high_priority else "prioridad de servicio",
         ),
         OverviewKpi(
             label="Sentimiento",
@@ -187,10 +187,10 @@ async def overview(
             spark_tone="neg" if sentiment_score < 0.6 else "pos",
         ),
         OverviewKpi(
-            label="Sin resolver",
-            value=str(unresolved),
-            delta=backlog_delta,
-            sub=f"{high_priority} de alta prioridad" if high_priority else "prioridad de servicio",
+            label="Interacciones",
+            value=_format_int_es(interactions_30d),
+            delta=_pct_delta(interactions_30d, interactions_prev),
+            sub="vs mes anterior",
         ),
         tmr_kpi,
     ]
