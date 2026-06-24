@@ -29,14 +29,16 @@ resumen. Sé concreto y útil.
 Devolvé SOLO un objeto JSON con esta forma exacta, sin texto adicional:
 {
   "lead": {
-    "title": "titular del insight principal",
-    "title_em": "parte del título a resaltar (subconjunto corto del title)",
+    "title": "inicio del titular (termina con un espacio si sigue title_em)",
+    "title_em": "fragmento del medio a resaltar que CONTINÚA la frase de title (déjalo null si no aplica)",
     "body": "2-3 oraciones explicando el insight principal",
     "confidence": "Alta" | "Media" | "Baja"
   },
   "featured": [
     {
-      "title": "recomendación", "title_em": "span a resaltar", "title_tail": "cola opcional",
+      "title": "inicio de la recomendación (con espacio final si sigue)",
+      "title_em": "fragmento resaltado que continúa la frase (o null)",
+      "title_tail": "resto de la frase tras lo resaltado (o null)",
       "body": "1-2 oraciones", "impact": "Impacto: <breve>", "confidence": "Alta|Media|Baja",
       "action_label": "texto del botón", "action_route": "/inbox" | "/segmentos" | "/recomendaciones"
     }
@@ -49,7 +51,13 @@ Devolvé SOLO un objeto JSON con esta forma exacta, sin texto adicional:
   ]
 }
 
-Generá 1 lead, 2-3 featured y 3-4 memos. Ordená los memos del más importante al menos."""
+Generá 1 lead, 2-3 featured y 3-4 memos. Ordená los memos del más importante al menos.
+
+REGLA CLAVE de titulares: `title` + `title_em` + `title_tail` se CONCATENAN tal cual \
+(incluí los espacios que correspondan) y deben leerse como UNA sola oración gramatical \
+y correcta. `title_em` es sólo la parte del medio que se resalta — NO repitas texto entre \
+los tres campos. Si no necesitás resaltar nada, poné `title_em` y `title_tail` en null y \
+escribí el titular completo en `title`."""
 
 
 async def _gather_context(conn: asyncpg.Connection, tenant_id: UUID) -> dict[str, Any]:
