@@ -61,15 +61,15 @@ Actualizar al final de cada sesión.
 
 > Objetivo: pasar de "dashboard con labels de IA" a **producto AI-native**. Orden: polish → salto de producto → moat → conversacional/ongoing. **Mobile es transversal** (arreglar todas las páginas; el Inbox está bug). Auditoría UI/UX hecha contra la app live 2026-06-24.
 
-### Fase 0 — Polish (que la IA que ya está se sienta terminada)
-- [ ] Headline del insight `lead` gramatical: el generador debe devolver UN titular limpio (o title + subtítulo), no pegar `title_em` y armar oraciones run-on (ej. "…Thalma Roca sentimiento neutral y positivo"). Ajustar prompt en `ai/insights_generator.py` + render.
-- [ ] Labels de clasificación en español en TODA la UI (intent/sentiment/priority): Queja / Negativo / Alta, etc. Hoy el detalle del Inbox muestra `complaint/negative/high` en inglés y los chips en español → unificar en la capa de display.
-- [ ] Inbox: distinguir visualmente inbound vs outbound (lado/color); hoy los mensajes se ven idénticos.
-- [ ] Reemplazar el "— actualizando…" persistente del masthead por un indicador sutil y transitorio.
-- [ ] Insights accionables: renderizar los botones `actions` en Recomendaciones (no sólo en el dashboard) + deep-link al Inbox/segmento filtrado.
-- [ ] Insights con evidencia: mostrar "basado en N mensajes/menciones" + link a la data detrás de cada insight.
-- [ ] Dashboard: selector de rango temporal (7 / 30 / 90 días) en vez de fijo.
-- [ ] Dashboard: priorizar "lo que necesita atención" (sin resolver / negativos) antes de las métricas vanity.
+### Fase 0 — Polish (que la IA que ya está se sienta terminada) — HECHO (deploy 2026-06-24), salvo rango temporal
+- [x] ~~Headline del insight `lead` gramatical~~ — prompt define title/title_em/title_tail como segmentos consecutivos de UNA oración. Verificado live.
+- [x] ~~Labels de clasificación en español en TODA la UI~~ — Intención/Sentimiento/Prioridad + chips: Queja/Negativo/Alta (helpers en `inbox.page.ts`).
+- [x] ~~Inbox: distinguir inbound vs outbound~~ — outbound (agente) alineado a la derecha + fondo acento.
+- [x] ~~Reemplazar el "— actualizando…" persistente~~ — masthead queda en blanco hasta que carga la data.
+- [x] ~~Insights accionables~~ — los botones `actions` se renderizan (featured-rec-card / memo-card) con deep-link a la ruta (`/inbox`, `/segmentos`) que setea el generador.
+- [x] ~~Insights con evidencia~~ — el prompt exige citar números concretos del resumen (ej. "29 menciones negativas", "140 sin resolver"). Verificado live.
+- [ ] Dashboard: selector de rango temporal (7 / 30 / 90 días). **DIFERIDO** — requiere parametrizar las ventanas (30/14/7d) del endpoint `/dashboard/overview` sin romper los deltas WoW; cambio de backend más grande, hacerlo supervisado.
+- [x] ~~Dashboard: priorizar "lo que necesita atención"~~ — KPIs reordenados: Sin resolver → Sentimiento → Interacciones → TMR.
 
 ### Fase 1 — Salto de producto (lo que el comprador siente)
 - [ ] ⭐ **Respuestas redactadas por IA** en el composer del Inbox: sugerir respuesta usando la conversación + su clasificación + voz de marca; el agente edita y envía (LiteLLM, mismo model config).
@@ -94,15 +94,19 @@ Actualizar al final de cada sesión.
 - [ ] Refrescar contenido del landing (`setiq.lat`).
 - [ ] Env separation dev / staging / prod.
 
-### Mobile responsive (TRANSVERSAL — arreglar todas, el Inbox está bug)
-- [ ] 🔴 **Inbox mobile (BUG):** el layout 2-paneles (`360px + 1fr`) se rompe en mobile → colapsar a navegación lista→detalle (tap en conversación abre detalle full-screen + botón volver). La más crítica.
-- [ ] Resumen/dashboard mobile: KPI cards + grid "Decisiones" apilan limpio.
-- [ ] Recomendaciones mobile: cards destacadas/memos a una columna.
-- [ ] Segmentos mobile: cards de sujetos a una columna + chips de filtro que wrappean.
-- [ ] Canales mobile: filas/tabla de canales responsive.
-- [ ] Equipo + Ajustes: pasada mobile.
-- [ ] Masthead/nav global: colapsar la nav (hamburger o nav scrollable) en mobile.
-- [ ] QA final a 375px (iPhone) en todas las páginas, especialmente el triage del Inbox.
+### Mobile responsive (TRANSVERSAL) — HECHO (deploy 2026-06-24), verificado a 375px
+- [x] ~~🔴 Inbox mobile (BUG)~~ — 2-paneles colapsa a navegación lista→detalle (tap → detalle full-screen + botón "← Conversaciones"). Verificado a 375px.
+- [x] ~~Resumen/dashboard mobile~~ — KPI cards + grids apilan (breakpoints 1024/720).
+- [x] ~~Recomendaciones mobile~~ — stat grid a 1 col; cards auto-fill.
+- [x] ~~Segmentos mobile~~ — stat grid + field-row a 1 col; cards auto-fill.
+- [x] ~~Canales mobile~~ — la tabla de 6 columnas scrollea horizontal.
+- [x] ~~Equipo + Ajustes mobile~~ — equipo usa card grid auto-fill; ajustes grid a 1 col.
+- [~] Masthead/nav: nav usa scroll horizontal en mobile (aceptable; no hamburger). Ver fix de UX abajo.
+- [x] ~~QA a 375px~~ — verificado inbox + dashboard live; resto por breakpoints.
+
+### Mobile UX fixes (2026-06-24, reportados por Saul)
+- [x] ~~Nav tabs: scroll sólo horizontal~~ — `touch-action: pan-x`, `overflow-y: hidden`, `overscroll-behavior: contain`, `user-select: none`, sin tap-highlight ni scrollbar.
+- [x] ~~Inputs: evitar el zoom de iOS al enfocar~~ — `input/textarea/select { font-size: 16px }` en mobile (≤720px).
 
 ---
 
@@ -166,7 +170,7 @@ Actualizar al final de cada sesión.
 
 ### Workers / pipelines
 - [ ] Worker Arq de Apify: dispara actors según `tracked_subjects` activos, persiste resultados en `mentions`. Bloqueado por cuenta Apify con saldo. **(ÚLTIMO — sólo TikTok/competidores, no bloquea el MVP)**
-- [~] Worker Arq de clasificación — worker deployado 2026-06-23. Classifier ahora pluggable vía **LiteLLM** (`CLASSIFIER_MODEL`): sandbox `groq/moonshotai/kimi-k2-instruct` (gratis, needs `GROQ_API_KEY`), prod por cliente real `anthropic/claude-haiku-4-5` (needs `ANTHROPIC_API_KEY`). Switch = una env var, sin cambios de código. Se activa al agregar la key correspondiente.
+- [~] Worker Arq de clasificación — worker deployado 2026-06-23, **activo con Groq Llama** (gratis). Classifier pluggable vía **LiteLLM** (`CLASSIFIER_MODEL`): sandbox `groq/llama-3.3-70b-versatile` (gratis, `GROQ_API_KEY` seteado; Kimi NO está en Groq → sería OpenRouter), prod por cliente real `anthropic/claude-haiku-4-5` (`ANTHROPIC_API_KEY`). Switch = una env var. Seed de mensajes (281/477) + insights + menciones clasificados con IA real. Modelo es GLOBAL (per-tenant routing pendiente).
 - [ ] Postmark inbound (email ingestion). Necesita cuenta Postmark + DNS de Thalma.
 - [ ] WhatsApp Business via Meta Cloud API. Bloqueado hasta App Review + cliente con número provisionado. **(NO CONSIDERAR TODAVÍA — fuera de alcance)**
 - [x] ~~Cron de limpieza de `webhook_events` viejos (hard-delete > 30 días)~~ — hecho 2026-06-23 (`cleanup_webhook_events` como `cron_jobs` de Arq, diario 03:00 UTC). Worker Arq deployado en la VPS → el cron ya corre.
