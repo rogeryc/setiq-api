@@ -732,13 +732,16 @@ async def draft_conversation_reply(
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant not found")
 
     tenant_settings = tenant["settings"] or {}
-    ai_policy = tenant_settings.get("ai_policy") if isinstance(tenant_settings, dict) else None
+    is_dict = isinstance(tenant_settings, dict)
+    ai_policy = tenant_settings.get("ai_policy") if is_dict else None
+    ai_voice = tenant_settings.get("ai_voice") if is_dict else None
 
     try:
         result = await reply_drafter.draft(
             channel=conv["channel"],
             messages=messages,
             ai_policy=ai_policy,
+            ai_voice=ai_voice,
             tenant_name=tenant["name"],
         )
     except ValueError as e:

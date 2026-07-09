@@ -94,6 +94,7 @@ async def draft(
     channel: str,
     messages: list[dict[str, Any]],
     ai_policy: dict[str, Any] | None,
+    ai_voice: dict[str, Any] | None = None,
     tenant_name: str | None = None,
 ) -> dict[str, Any]:
     """Ask the LLM to draft a reply for the given conversation.
@@ -101,6 +102,10 @@ async def draft(
     `messages` should be the last ~8 messages, cronologically. Only content_text
     + direction are used. Returns a dict with keys `text` (draft) and optional
     `notes` (agent-facing).
+
+    `ai_voice` is the tenant's free-form brand voice description edited in
+    /ajustes. If present, it overrides the tone_empathetic default and gets
+    the strongest weight in the prompt (a real human wrote it).
     """
     if not messages:
         raise ValueError("draft: at least one inbound message is required")
@@ -109,9 +114,17 @@ async def draft(
     history = _format_history(messages[-8:])
     brand = tenant_name or "la marca"
 
+    voice_description = ((ai_voice or {}).get("description") or "").strip()
+    voice_block = (
+        f'Descripción textual de la voz (autoridad máxima — pesa MÁS que las '
+        f'preferencias de tono de abajo):\n"""\n{voice_description}\n"""\n\n'
+        if voice_description
+        else ""
+    )
+
     user_prompt = f"""Marca: {brand}
 Canal: {channel}
-Preferencias de tono:
+{voice_block}Preferencias de tono:
 {voice}
 
 Conversación reciente (más antigua arriba, más reciente abajo):
