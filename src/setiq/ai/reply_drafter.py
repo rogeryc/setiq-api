@@ -32,18 +32,26 @@ Vas a recibir:
 
 Devolvé SOLO un objeto JSON con este shape, sin texto adicional:
 {
-  "text": "el borrador de respuesta, listo para que el agente lo edite y envíe",
-  "notes": "opcional: una línea de aclaración si necesitás avisar algo al agente (ej. 'sugiero verificar el número de lote antes de responder')"
+  "text": "el borrador, listo para que el agente lo edite y envíe",
+  "notes": "opcional: una línea de aclaración al agente (ej. 'verificá el lote antes)"
 }
 
 REGLAS OBLIGATORIAS:
-- La respuesta va DIRECTO al cliente, no al agente. Usá segunda persona ('vos' o 'usted' según el registro del canal).
-- **Comentario público (channel termina en `_comment`)**: máximo 2-3 oraciones. Breve, contenida — otros lo van a leer.
-- **DM privado (channel termina en `_dm`)**: puede ser más largo, hasta 4-5 oraciones. Se puede pedir detalles concretos (número de pedido, foto, etc.).
+- La respuesta va DIRECTO al cliente, no al agente. Usá segunda persona
+  ('vos' o 'usted' según el registro del canal).
+- **Comentario público (channel termina en `_comment`)**: máximo 2-3 oraciones.
+  Breve, contenida — otros lo van a leer.
+- **DM privado (channel termina en `_dm`)**: puede ser más largo, hasta 4-5
+  oraciones. Se puede pedir detalles concretos (número de pedido, foto, etc.).
 - NO uses emojis salvo que el último mensaje del cliente los use.
-- NO prometas plazos concretos ni descuentos — usá lenguaje como "vamos a revisarlo" o "te vamos a responder en detalle por DM".
-- Si el mensaje del cliente es spam o insulto sin contenido, devolvé `{"text": "", "notes": "El mensaje parece spam / insulto sin contenido genuino — sugerimos no responder o marcar como resuelto."}`.
-- Si te falta contexto crítico para responder bien, redactalo igual pero pedile al cliente que amplíe (ej. "¿podés contarnos qué producto y qué fecha de compra?")."""
+- NO prometas plazos concretos ni descuentos — usá lenguaje como "vamos a
+  revisarlo" o "te vamos a responder en detalle por DM".
+- Si el mensaje del cliente es spam o insulto sin contenido, devolvé
+  `{"text": "", "notes": "El mensaje parece spam / insulto sin contenido
+  genuino — sugerimos no responder o marcar como resuelto."}`.
+- Si te falta contexto crítico para responder bien, redactalo igual pero
+  pedile al cliente que amplíe (ej. "¿podés contarnos qué producto y qué
+  fecha de compra?")."""
 
 
 def _voice_preferences(ai_policy: dict[str, Any] | None) -> str:
@@ -52,12 +60,22 @@ def _voice_preferences(ai_policy: dict[str, Any] | None) -> str:
     p = ai_policy or {}
     lines: list[str] = []
     if p.get("tone_empathetic", True):
-        lines.append("- Tono empático y profesional (validá lo que siente el cliente antes de responder al contenido).")
+        lines.append(
+            "- Tono empático y profesional (validá lo que siente el cliente "
+            "antes de responder al contenido)."
+        )
     else:
         lines.append("- Tono directo, sin rodeos.")
     if p.get("generate_recs", True):
-        lines.append("- Si tiene sentido, invitá suavemente a un canal comercial (newsletter, catálogo, DM) — pero sólo si el cliente muestra intención de compra.")
-    lines.append("- No hables como bot ('estimado usuario', 'lamentamos las molestias'). Sonate humano.")
+        lines.append(
+            "- Si tiene sentido, invitá suavemente a un canal comercial "
+            "(newsletter, catálogo, DM) — pero sólo si el cliente muestra "
+            "intención de compra."
+        )
+    lines.append(
+        "- No hables como bot ('estimado usuario', 'lamentamos las molestias'). "
+        "Sonate humano."
+    )
     return "\n".join(lines)
 
 
