@@ -75,6 +75,14 @@ class ReplyResponse(BaseModel):
     external_id: str | None = None
 
 
+class DraftReplyResponse(BaseModel):
+    """Returned by POST /conversations/{id}/draft-reply. NOT sent — this is a
+    suggestion the agent edits in the composer before hitting Enviar."""
+    text: str
+    notes: str | None = None
+    model: str
+
+
 class ConversationDetail(BaseModel):
     id: UUID
     # For a single conversation: that contact. For a thread (as_thread=true):

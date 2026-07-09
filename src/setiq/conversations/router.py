@@ -15,6 +15,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from setiq.ai import reply_drafter
 from setiq.auth.dependencies import CurrentUser, get_current_user, get_tenant_db
 from setiq.config import settings
 from setiq.conversations.schemas import (
@@ -24,6 +25,7 @@ from setiq.conversations.schemas import (
     ConversationsResponse,
     ConversationSummary,
     ConversationUpdate,
+    DraftReplyResponse,
     MessageDetail,
     ReplyRequest,
     ReplyResponse,
@@ -669,4 +671,82 @@ async def reply_to_conversation(
             sent_at=msg_row["sent_at"],
         ),
         external_id=meta_external_id,
+    )
+
+
+# ---------------------------------------------------------------------------
+# AI-drafted reply — POST /conversations/{id}/draft-reply
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{conversation_id}/draft-reply",
+    response_model=DraftReplyResponse,
+    response_model_exclude_none=True,
+)
+async def draft_conversation_reply(
+    conversation_id: UUID,
+    _current_user: CurrentUser = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_tenant_db),
+) -> DraftReplyResponse:
+    """Return an AI-drafted reply for this conversation. Does NOT send —
+    the draft goes into the frontend composer for the agent to edit and
+    confirm with the normal /reply endpoint.
+
+    Uses settings.classifier_model (LiteLLM) — same infra as the classifier
+    + insights generator. Reads the tenant's ai_policy toggles from
+    tenants.settings so tone matches what the admin chose in /ajustes.
+    """
+    conv = await conn.fetchrow(
+        "SELECT id, channel FROM conversations WHERE id = $1",
+        conversation_id,
+    )
+    if conv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+
+    # Last 8 messages, oldest first — gives the LLM enough context without
+    # blowing up the prompt.
+    msg_rows = await conn.fetch(
+        """
+        SELECT direction, content_text
+        FROM messages
+        WHERE conversation_id = $1
+        ORDER BY sent_at DESC
+        LIMIT 8
+        """,
+        conversation_id,
+    )
+    messages = [
+        {"direction": r["direction"], "content_text": r["content_text"]}
+        for r in reversed(msg_rows)
+    ]
+    if not any(m["direction"] == "inbound" for m in messages):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No hay mensaje entrante para responder",
+        )
+
+    tenant = await conn.fetchrow(
+        "SELECT name, settings FROM tenants WHERE id = current_tenant_id()"
+    )
+    if tenant is None:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Tenant not found")
+
+    tenant_settings = tenant["settings"] or {}
+    ai_policy = tenant_settings.get("ai_policy") if isinstance(tenant_settings, dict) else None
+
+    try:
+        result = await reply_drafter.draft(
+            channel=conv["channel"],
+            messages=messages,
+            ai_policy=ai_policy,
+            tenant_name=tenant["name"],
+        )
+    except ValueError as e:
+        logger.warning("draft failed for conv %s: %s", conversation_id, e)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(e)) from e
+
+    return DraftReplyResponse(
+        text=result["text"],
+        notes=result.get("notes"),
+        model=settings.classifier_model,
     )
