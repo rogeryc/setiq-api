@@ -1,4 +1,4 @@
-\restrict 619ZbCoBLqPgV4ehq2lxuil7HaSBxEAVO5EE48ofUkCcccrf42QcpTPUMgSFX8P
+\restrict 0CFEyaInDSklPfAlqu0giuqRihhR3kaiNuwOXfkgjWNC9CENgvmrKskEqJ7wtCT
 
 -- Dumped from database version 14.20 (Homebrew)
 -- Dumped by pg_dump version 14.20 (Homebrew)
@@ -81,6 +81,28 @@ CREATE TABLE public.channel_identities (
 
 
 --
+-- Name: connected_channels; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.connected_channels (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    provider text DEFAULT 'meta'::text NOT NULL,
+    page_id text NOT NULL,
+    page_name text,
+    category text,
+    page_token text NOT NULL,
+    instagram_business_account jsonb,
+    connected_by_user_id text,
+    token_expires_at timestamp with time zone,
+    last_sync_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT connected_channels_provider_check CHECK ((provider = 'meta'::text))
+);
+
+
+--
 -- Name: contacts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -151,6 +173,7 @@ CREATE TABLE public.conversations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     closed_at timestamp with time zone,
+    received_by_page_id text,
     CONSTRAINT conversations_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'instagram_dm'::text, 'instagram_comment'::text, 'facebook_dm'::text, 'facebook_comment'::text, 'email'::text, 'tiktok_comment'::text, 'web'::text]))),
     CONSTRAINT conversations_status_check CHECK ((status = ANY (ARRAY['open'::text, 'pending_agent'::text, 'waiting_customer'::text, 'resolved'::text, 'closed'::text])))
 );
@@ -181,6 +204,7 @@ CREATE TABLE public.insights (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
+    assigned_user_id uuid,
     CONSTRAINT insights_kind_check CHECK ((kind = ANY (ARRAY['lead'::text, 'featured'::text, 'memo'::text]))),
     CONSTRAINT insights_severity_check CHECK ((severity = ANY (ARRAY['low'::text, 'med'::text, 'high'::text])))
 );
@@ -406,6 +430,14 @@ ALTER TABLE ONLY public.channel_identities
 
 
 --
+-- Name: connected_channels connected_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.connected_channels
+    ADD CONSTRAINT connected_channels_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contacts contacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -557,6 +589,20 @@ CREATE INDEX idx_channel_identities_contact ON public.channel_identities USING b
 
 
 --
+-- Name: idx_connected_channels_connected_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_connected_channels_connected_by ON public.connected_channels USING btree (connected_by_user_id);
+
+
+--
+-- Name: idx_connected_channels_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_connected_channels_tenant ON public.connected_channels USING btree (tenant_id);
+
+
+--
 -- Name: idx_contacts_tags; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -606,6 +652,13 @@ CREATE INDEX idx_conversation_notes_tenant_conv_created ON public.conversation_n
 
 
 --
+-- Name: idx_conversations_received_by_page; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_conversations_received_by_page ON public.conversations USING btree (tenant_id, received_by_page_id) WHERE (received_by_page_id IS NOT NULL);
+
+
+--
 -- Name: idx_conversations_tenant_assigned_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -624,6 +677,13 @@ CREATE INDEX idx_conversations_tenant_contact ON public.conversations USING btre
 --
 
 CREATE INDEX idx_conversations_tenant_status_last ON public.conversations USING btree (tenant_id, status, last_message_at DESC NULLS LAST);
+
+
+--
+-- Name: idx_insights_tenant_assignee; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insights_tenant_assignee ON public.insights USING btree (tenant_id, assigned_user_id) WHERE ((deleted_at IS NULL) AND enabled AND (assigned_user_id IS NOT NULL));
 
 
 --
@@ -725,6 +785,13 @@ CREATE INDEX idx_webhook_events_status_received ON public.webhook_events USING b
 
 
 --
+-- Name: uq_connected_channels_tenant_page; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_connected_channels_tenant_page ON public.connected_channels USING btree (tenant_id, page_id);
+
+
+--
 -- Name: uq_conversations_thread; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -750,6 +817,13 @@ CREATE UNIQUE INDEX uq_messages_external_id ON public.messages USING btree (tena
 --
 
 CREATE TRIGGER channel_identities_set_updated_at BEFORE UPDATE ON public.channel_identities FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: connected_channels connected_channels_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER connected_channels_set_updated_at BEFORE UPDATE ON public.connected_channels FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
@@ -815,6 +889,14 @@ ALTER TABLE ONLY public.channel_identities
 
 ALTER TABLE ONLY public.channel_identities
     ADD CONSTRAINT channel_identities_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: connected_channels connected_channels_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.connected_channels
+    ADD CONSTRAINT connected_channels_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -911,6 +993,14 @@ ALTER TABLE ONLY public.conversations
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: insights insights_assigned_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insights
+    ADD CONSTRAINT insights_assigned_user_id_fkey FOREIGN KEY (assigned_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -1052,6 +1142,19 @@ ALTER TABLE public.channel_identities ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY channel_identities_tenant_isolation ON public.channel_identities USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
+
+
+--
+-- Name: connected_channels; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.connected_channels ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: connected_channels connected_channels_tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY connected_channels_tenant_isolation ON public.connected_channels USING ((tenant_id = public.current_tenant_id())) WITH CHECK ((tenant_id = public.current_tenant_id()));
 
 
 --
@@ -1214,7 +1317,7 @@ CREATE POLICY webhook_events_tenant_isolation ON public.webhook_events USING (((
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 619ZbCoBLqPgV4ehq2lxuil7HaSBxEAVO5EE48ofUkCcccrf42QcpTPUMgSFX8P
+\unrestrict 0CFEyaInDSklPfAlqu0giuqRihhR3kaiNuwOXfkgjWNC9CENgvmrKskEqJ7wtCT
 
 
 --
@@ -1229,4 +1332,7 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260518240000'),
     ('20260518250000'),
     ('20260519130000'),
-    ('20260519140000');
+    ('20260519140000'),
+    ('20260623210000'),
+    ('20260623220000'),
+    ('20260713080000');

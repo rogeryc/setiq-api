@@ -32,9 +32,22 @@ class Insight(BaseModel):
     actions: list[InsightAction] = []
     rank: int
     created_at: datetime
+    assigned_user_id: UUID | None = None
+    assigned_user_name: str | None = None
 
 
 class InsightsResponse(BaseModel):
     insights: list[Insight]
     total: int
     counts: dict[str, int]  # { 'lead': 1, 'featured': 1, 'memo': 3 }
+
+
+class InsightUpdate(BaseModel):
+    """PATCH body — currently just the assignee. `null` clears it."""
+    assigned_user_id: UUID | None = None
+
+
+class InsightMutation(BaseModel):
+    id: UUID
+    assigned_user_id: UUID | None = None
+    assigned_user_name: str | None = None
